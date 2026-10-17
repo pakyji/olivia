@@ -31,6 +31,16 @@
   .cursor::after { content:"▋"; color:var(--acc); animation:blink 1s steps(2) infinite; }
   @keyframes blink { 50% { opacity:0; } }
   .hint { color:var(--mut); font-size:12px; text-align:center; padding:6px; }
+  #voicebar { display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--panel); border-bottom:1px solid #222c3f; flex-wrap:wrap; }
+  #voicebar button { padding:7px 11px; }
+  #mic.listening { background:#7a2233; border-color:#b0304a; color:#fff; animation:pulse 1.3s infinite; }
+  @keyframes pulse { 50% { opacity:.65; } }
+  #mic:disabled { opacity:.45; }
+  .toggle.on { background:var(--acc); border-color:var(--acc); color:#fff; }
+  .convlabel { font-size:13px; color:var(--mut); display:flex; align-items:center; gap:5px; }
+  #vstatus { color:var(--mut); font-size:12px; }
+  #transcript { min-height:0; padding:0 12px; color:var(--acc); font-size:14px; }
+  #transcript:not(:empty) { padding:6px 12px; }
 </style>
 </head>
 <body>
@@ -40,6 +50,17 @@
   <select id="model" title="Model"></select>
   <button id="newchat">New chat</button>
 </header>
+
+<div id="voicebar">
+  <button id="mic" title="Bolna">🎙 Mic</button>
+  <button id="lang" class="toggle" title="Hindi / English">hi-IN</button>
+  <button id="stopspk" title="Stop speaking">⏹ Stop</button>
+  <label class="convlabel"><input type="checkbox" id="conv" /> Baat-cheet loop</label>
+  <div class="spacer"></div>
+  <span id="vstatus">voice ready</span>
+</div>
+<div id="transcript"></div>
+
 <div id="chat"></div>
 <div class="hint" id="hint">Hinglish coding agent — poocho kuch bhi</div>
 <footer>
@@ -47,5 +68,6 @@
   <button id="send" class="primary">Send</button>
 </footer>
 <script src="./app.js"></script>
+<script src="./voice.js"></script>
 </body>
 </html>

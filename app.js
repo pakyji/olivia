@@ -94,6 +94,7 @@ async function send() {
   const text = inputEl.value.trim();
   if (!text || busy) return;
   busy = true;
+  if (window.ullah && window.ullah.onState) window.ullah.onState({ busy: true });
   inputEl.value = "";
   inputEl.style.height = "auto";
 
@@ -158,6 +159,10 @@ async function send() {
   saveChat();
   chatEl.scrollTop = chatEl.scrollHeight;
   busy = false;
+  if (window.ullah) {
+    if (window.ullah.onReply) window.ullah.onReply(acc);
+    if (window.ullah.onState) window.ullah.onState({ busy: false });
+  }
 }
 
 // --- wiring ---
@@ -201,6 +206,14 @@ async function loadModels() {
   } catch {}
   modelSel.value = [...modelSel.options].some((o) => o.value === saved) ? saved : "auto";
 }
+
+// Hooks for voice.js (Phase 2). app.js stays usable without voice.
+window.ullah = {
+  isBusy: () => busy,
+  sendText: (t) => { inputEl.value = t; send(); },
+  onReply: null, // set by voice.js: called with reply text after it finishes
+  onState: null, // called with {busy} changes
+};
 
 renderAll();
 loadModels();
