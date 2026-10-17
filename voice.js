@@ -23,7 +23,7 @@
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   let rec = null;
   let listening = false;
-  let convMode = lsGet("conv", "0") === "1";
+  let convMode = lsGet("conv", "1") === "1";
   let wakeOn = lsGet("wake", "0") === "1";
   let ttsOn = lsGet("tts", "1") !== "0";
   let rate = parseFloat(lsGet("rate", "1")) || 1;
@@ -60,6 +60,21 @@
     });
   }
 
+  /* ---------- gesture prime: WebView TTS ko first tap pe unlock karo ---------- */
+  let primed = false;
+  function prime() {
+    if (primed || !synth) return;
+    primed = true;
+    try {
+      synth.resume();
+      const p = new SpeechSynthesisUtterance(" ");
+      p.volume = 0;
+      synth.speak(p);
+    } catch (e) {}
+  }
+  document.addEventListener("click", prime);
+  document.addEventListener("touchstart", prime);
+
   /* ---------- speech out — v3 engine (female-first) ---------- */
   const synth = window.speechSynthesis;
   let voices = [];
@@ -69,6 +84,9 @@
   function loadVoices() {
     if (!synth) return;
     voices = synth.getVoices() || [];
+    if (voices.length && /voice ready/.test(statusEl.textContent)) {
+      setStatus("voice ready (" + voices.length + " voices)");
+    }
   }
   if (synth) {
     loadVoices();
@@ -135,7 +153,11 @@
     spokeDuringTurn = true;
     document.body.classList.add("speaking");
     setStatus("speaking... [" + (v ? v.lang : "no-voice") + "]");
-    setTimeout(() => {           // Android quirk: never speak right after cancel
+    let tries = 0;
+    const go = () => {
+      tries++;
+      if (!voices.length && synth && tries < 4) { setTimeout(go, 400); return; }  // voices late aati hain
+      try { synth.resume(); } catch (e) {}   // paused synth = silent queue
       parts.forEach((p) => {
         const u = new SpeechSynthesisUtterance(p);
         if (v) u.voice = v;
@@ -150,7 +172,8 @@
         synth.speak(u);
       });
       startResumeWatch();
-    }, 80);
+    };
+    setTimeout(go, 80);          // Android quirk: never speak right after cancel
   }
 
   function onSpeakEnd() {
@@ -179,6 +202,8 @@
   testBtn.addEventListener("click", () => {
     const was = ttsOn;
     ttsOn = true;
+    if (!synth) { setStatus("TTS not supported in this WebView"); return; }
+    setStatus("voices: " + (voices.length || synth.getVoices().length) + " | testing...");
     speak("Hello! I'm Olivia Thomas, your personal AI assistant. How may I help you today?");
     ttsOn = was;
   });
@@ -249,6 +274,7 @@
     document.body.classList.remove("listening");
     micBtn.textContent = "🎙 Mic";
     if (!spokeDuringTurn) setStatus(convMode ? "listening..." : "voice ready");
+    if (convMode) setTimeout(startListen, 300);   // hands-free: kaan hamesha khule
   };
 
   let finalText = "";
