@@ -6,8 +6,12 @@ const newBtn = document.getElementById("newchat");
 const modelSel = document.getElementById("model");
 const hintEl = document.getElementById("hint");
 
-const LS_KEY = "ullah.chat.v1";
-const LS_MODEL = "ullah.model.v1";
+const LS_KEY = "olivia.chat.v1";
+const LS_MODEL = "olivia.model.v1";
+try {
+  if (!localStorage.getItem(LS_KEY) && localStorage.getItem("ullah.chat.v1")) localStorage.setItem(LS_KEY, localStorage.getItem("ullah.chat.v1"));
+  if (!localStorage.getItem(LS_MODEL) && localStorage.getItem("ullah.model.v1")) localStorage.setItem(LS_MODEL, localStorage.getItem("ullah.model.v1"));
+} catch {}
 
 let messages = loadChat();          // [{role, content}]
 let busy = false;
@@ -35,7 +39,8 @@ function renderMarkdown(text) {
       if (nl !== -1 && /^[a-zA-Z0-9_+-]{0,15}$/.test(code.slice(0, nl).trim())) {
         code = code.slice(nl + 1);
       }
-      html += `<pre><button class="copybtn" data-copy>Copy</button><code>${escapeHtml(code.replace(/\n$/, ""))}</code></pre>`;
+      const tagMatch = parts[i].slice(0, parts[i].indexOf("\n")).trim();
+      html += `<pre><button class="copybtn" data-copy>Copy</button><button class="copybtn savebtn" data-save data-lang="${escapeHtml(tagMatch)}">Save</button><code>${escapeHtml(code.replace(/\n$/, ""))}</code></pre>`;
     } else {
       html += escapeHtml(parts[i]).replace(/`([^`]+)`/g, "<code>$1</code>");
     }
@@ -78,8 +83,20 @@ function addError(msg) {
   chatEl.scrollTop = chatEl.scrollHeight;
 }
 
-// copy buttons (delegated)
+// copy + save buttons (delegated)
 chatEl.addEventListener("click", (e) => {
+  const sv = e.target.closest("[data-save]");
+  if (sv) {
+    const code = sv.parentElement.querySelector("code");
+    if (window.ullahSaveCode) {
+      window.ullahSaveCode(code.innerText, sv.dataset.lang || "").then((detail) => {
+        sv.textContent = "Saved";
+        setTimeout(() => (sv.textContent = "Save"), 1500);
+        if (window.ullah && window.ullah.localReply) window.ullah.localReply(detail);
+      });
+    }
+    return;
+  }
   const btn = e.target.closest("[data-copy]");
   if (!btn) return;
   const code = btn.parentElement.querySelector("code");
@@ -241,4 +258,9 @@ window.ullah = {
 };
 
 renderAll();
+if (!messages.length) {
+  const g = bubble("assistant");
+  g.body.textContent = "Hello there — Olivia Thomas at your service. Ask me anything, or try: system report, open youtube, suggest a movie.";
+  chatEl.appendChild(g.el);
+}
 loadModels();

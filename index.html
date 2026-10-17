@@ -47,6 +47,7 @@
   pre { background:var(--code); border:1px solid #26324a; border-radius:12px; padding:10px; margin:8px 0 2px; overflow-x:auto; position:relative; white-space:pre; }
   pre code { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:13px; }
   .copybtn { position:absolute; top:6px; right:6px; font-size:11px; padding:3px 8px; background:#1f2b3f; }
+  .savebtn { right:52px; }
   #chips { display:flex; gap:6px; padding:6px 10px; overflow-x:auto; }
   .chip { flex:0 0 auto; padding:6px 12px; font-size:12px; border-radius:999px; background:var(--panel2); border:1px solid #2b3952; color:var(--mut); }
   footer { padding:8px 10px; border-top:1px solid #222c3f; display:flex; gap:8px; align-items:flex-end; }
@@ -55,6 +56,11 @@
   .cursor::after { content:"▋"; color:var(--acc); animation:blink 1s steps(2) infinite; }
   @keyframes blink { 50% { opacity:0; } }
   .hint { color:var(--mut); font-size:12px; text-align:center; padding:6px; }
+  #orb { width:14px; height:14px; border-radius:50%; background:var(--grad); box-shadow:0 0 12px rgba(122,162,255,.9); animation:orbidle 3s ease-in-out infinite; flex:0 0 auto; }
+  @keyframes orbidle { 50% { transform:scale(.75); opacity:.65; } }
+  body.listening #orb { background:linear-gradient(135deg,#ff5b7a,#b0304a); animation:orbpulse 1s infinite; }
+  body.speaking #orb { background:linear-gradient(135deg,#7affc4,#7aa2ff); animation:orbpulse .8s infinite; }
+  @keyframes orbpulse { 50% { transform:scale(1.6); box-shadow:0 0 24px rgba(122,255,196,.9); } }
   #voicebar { display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid #222c3f; flex-wrap:wrap; }
   #voicebar button { padding:7px 11px; }
   #mic.listening { background:linear-gradient(135deg,#8a2432,#7a2233); border-color:#b0304a; color:#fff; animation:pulse 1.3s infinite; }
@@ -92,6 +98,7 @@
 </header>
 
 <div id="voicebar">
+  <span id="orb" title="Olivia core"></span>
   <button id="mic" title="Speak">🎙 Mic</button>
   <button id="tts" class="toggle on" title="Speech on/off">🔊 TTS</button>
   <button id="voicetest" title="Test voice">🔔 Test</button>
@@ -125,7 +132,7 @@
   </label>
   <div class="row"><span>Wake word “Olivia”</span><input type="checkbox" id="wake" /></div>
   <button id="newchat"> New chat</button>
-  <div id="about"></div>
+  <div id="about">Olivia Thomas v5 — JARVIS-style voice-first personal AI agent. Opens apps, builds &amp; zips projects, runs code, pushes to GitHub. Zero-dependency Node server + vanilla JS, built on Termux, shipped via GitHub Actions.</div>
 </div>
 
 <script src="./app.js"></script>

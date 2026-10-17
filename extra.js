@@ -1,4 +1,4 @@
-// Olivia Thomas extra — premium menu drawer, JARVIS-style instant commands, chips, health pill.
+// Olivia Thomas extra v5 — menu drawer, JARVIS commands + device actions, chips, health pill.
 (function () {
   /* ---------- menu drawer ---------- */
   const menuBtn = document.getElementById("menubtn");
@@ -42,21 +42,33 @@
   checkHealth();
   setInterval(checkHealth, 15000);
 
+  /* ---------- device actions (server /api/act) ---------- */
+  const APPS = ["whatsapp","youtube","chrome","settings","maps","photos","instagram","spotify","phone","messages","clock","files","playstore","telegram","gmail","termux","calculator","camera"];
+  async function act(payload) {
+    try {
+      const r = await fetch("./api/act", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const j = await r.json();
+      return j.detail || (j.ok ? "done" : "failed");
+    } catch (e) {
+      return "Server unreachable: " + e.message;
+    }
+  }
+
   /* ---------- JARVIS-style instant local commands ---------- */
   function batteryInfo() {
     return new Promise((resolve) => {
-      if (!navigator.getBattery) return resolve("battery API not available");
+      if (!navigator.getBattery) return resolve("Battery API not available.");
       navigator.getBattery().then((b) => {
-        resolve(
-          "Battery at " + Math.round(b.level * 100) + "%, " +
-          (b.charging ? "charging" : "on battery") + "."
-        );
-      }).catch(() => resolve("battery info unavailable"));
+        resolve("Battery at " + Math.round(b.level * 100) + "%, " + (b.charging ? "charging" : "on battery") + ".");
+      }).catch(() => resolve("Battery info unavailable."));
     });
   }
   function timeInfo() {
-    const d = new Date();
-    return "It's " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + " right now.";
+    return "It's " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + " right now.";
   }
   function dateInfo() {
     return "Today is " + new Date().toLocaleDateString([], { weekday: "long", year: "numeric", month: "long", day: "numeric" }) + ".";
@@ -64,23 +76,43 @@
   async function systemReport() {
     const bat = await batteryInfo();
     const net = navigator.onLine ? "online" : "offline";
-    return (
-      "System report: " + timeInfo() + " " + dateInfo() + " " + bat +
+    return "System report: " + timeInfo() + " " + dateInfo() + " " + bat +
       " Network: " + net + ". Brain: " + (brainUp ? "connected" : "offline") +
-      ". I'm Olivia Thomas, all systems nominal."
-    );
+      ". All systems nominal, sir.";
+  }
+  function lastProject() {
+    try { return localStorage.getItem("olivia.lastproject") || "myapp"; } catch { return "myapp"; }
   }
   const CMD = [
+    [/(?:send|bhejo)\s+(?:sms|text|message)\s+(?:to\s+)?(\+?\d[\d\s-]{6,})\s*[:-]\s*(.+)/i, (m) => act({ action: "send_sms", to: m[1], text: m[2] })],
+    [/\bscroll\s+(down|up)\b/i, (m) => act({ action: "scroll", dir: m[1] })],
+    [/\btap\s+(\d{1,4})[ ,]+(\d{1,4})\b/i, (m) => act({ action: "tap", x: m[1], y: m[2] })],
+    [/\bgo back\b/i, () => act({ action: "key", name: "back" })],
+    [/\bgo home\b|\bhome screen\b/i, () => act({ action: "key", name: "home" })],
     [/\b(time|samay|kitne baje)\b/i, () => Promise.resolve(timeInfo())],
     [/\b(date|today|aaj)\b/i, () => Promise.resolve(dateInfo())],
     [/\bbattery\b/i, batteryInfo],
     [/\b(status|report|health|system)\b/i, systemReport],
+    [/\bopen\s+([a-z ]+)$/i, async (m) => {
+      const name = m[1].trim();
+      if (/^https?:\/\//.test(name)) return act({ action: "open_url", url: name });
+      if (!APPS.includes(name)) return "I can open: " + APPS.join(", ");
+      return act({ action: "open_app", name });
+    }],
+    [/\bzip(?:\s+(?:project|my\s+project)?\s*([\w.-]+))?/i, async (m) => {
+      const proj = (m[1] && m[1] !== "project") ? m[1] : lastProject();
+      return act({ action: "zip_project", project: proj });
+    }],
+    [/\bprojects?\s+list\b|\blist projects\b/i, () => act({ action: "list_projects" })],
+    [/\bpush\b.*\bgithub\b|\bgithub\b.*\bpush\b/i, () => act({ action: "git_push", message: "Olivia: push from assistant" })],
+    [/\brun\s+([\w.-]+)/i, (m) => act({ action: "run_node", project: lastProject(), file: m[1] })],
   ];
   window.ullahPre = (text) => {
     for (const [re, fn] of CMD) {
-      if (re.test(text)) {
-        fn().then((reply) => {
-          if (window.ullah && window.ullah.localReply) window.ullah.localReply(reply);
+      const m = text.match(re);
+      if (m) {
+        Promise.resolve(fn(m)).then((reply) => {
+          if (window.ullah && window.ullah.localReply) window.ullah.localReply(String(reply));
         });
         return true;
       }
@@ -88,10 +120,22 @@
     return false;
   };
 
+  /* ---------- save code blocks into projects ---------- */
+  const EXT = { js: "js", javascript: "js", python: "py", py: "py", html: "html", css: "css", bash: "sh", sh: "sh", json: "json", ts: "ts", java: "java", xml: "xml" };
+  let snippetN = 0;
+  window.ullahSaveCode = async (code, langTag) => {
+    const proj = lastProject();
+    const ext = EXT[(langTag || "").toLowerCase()] || "txt";
+    snippetN++;
+    const file = "snippet-" + snippetN + "." + ext;
+    const detail = await act({ action: "save_file", project: proj, file, content: code });
+    return detail;
+  };
+
   /* ---------- quick chips ---------- */
   const wrap = document.getElementById("chips");
   if (wrap) {
-    const CHIPS = ["time?", "battery status", "system report", "write code", "find bug", "explain it"];
+    const CHIPS = ["time?", "battery status", "system report", "open whatsapp", "open youtube", "open netflix", "suggest a movie", "scroll down", "go back", "zip project", "push to github"];
     CHIPS.forEach((c) => {
       const b = document.createElement("button");
       b.className = "chip";
@@ -99,7 +143,7 @@
       b.addEventListener("click", () => {
         const inp = document.getElementById("input");
         const cur = inp.value.trim();
-        inp.value = (cur ? cur + " — " : "") + c.replace(/\?$/, "") + ": ";
+        inp.value = (cur ? cur + " — " : "") + c.replace(/\?$/, "") + (/\?$/.test(c) ? "?" : "");
         inp.focus();
       });
       wrap.appendChild(b);
@@ -107,11 +151,6 @@
   }
 
   /* ---------- drawer extras ---------- */
-  const clearBtn = document.getElementById("clearchat");
-  if (clearBtn) clearBtn.addEventListener("click", () => {
-    document.getElementById("newchat").click();
-    closeDrawer();
-  });
-  const aboutEl = document.getElementById("about");
-  if (aboutEl) aboutEl.textContent = "Olivia Thomas v3 — voice-first personal AI agent. Zero-dependency Node server + vanilla JS. Built on Termux, shipped via GitHub Actions.";
+  const newBtn = document.getElementById("newchat");
+  if (newBtn) newBtn.addEventListener("click", closeDrawer);
 })();

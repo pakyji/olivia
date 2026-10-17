@@ -9,4 +9,4 @@ echo $! > server.pid
 disown 2>/dev/null
 termux-notification --id olivia --title "Olivia is running" --content "http://127.0.0.1:8080" 2>/dev/null
 echo "Olivia running in background (pid $(cat server.pid 2>/dev/null)). Log: tail -f server.log"
-echo "Stop karne ke liye: bash stop-ullah.sh"
+echo "To stop: bash stop-olivia.sh"

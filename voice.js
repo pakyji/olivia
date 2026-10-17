@@ -16,18 +16,29 @@
     "Roman Urdu": { sr: "hi-IN", tts: "hi-IN" },
     "Italian":    { sr: "it-IT", tts: "it-IT" },
   };
-  let langName = localStorage.getItem("ullah.langname") || "English";
+  let langName = lsGet("langname", "English");
   if (!LANGS[langName]) langName = "English";
   window.ullahLang = () => langName;   // app.js reads this for the server
 
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   let rec = null;
   let listening = false;
-  let convMode = localStorage.getItem("ullah.conv") === "1";
-  let wakeOn = localStorage.getItem("ullah.wake") === "1";
-  let ttsOn = localStorage.getItem("ullah.tts") !== "0";
-  let rate = parseFloat(localStorage.getItem("ullah.rate") || "1") || 1;
+  let convMode = lsGet("conv", "0") === "1";
+  let wakeOn = lsGet("wake", "0") === "1";
+  let ttsOn = lsGet("tts", "1") !== "0";
+  let rate = parseFloat(lsGet("rate", "1")) || 1;
   let spokeDuringTurn = false;
+
+  function lsGet(k, d) {
+    try {
+      const v = localStorage.getItem("olivia." + k);
+      if (v !== null) return v;
+      const o = localStorage.getItem("ullah." + k);
+      if (o !== null) { localStorage.setItem("olivia." + k, o); localStorage.removeItem("ullah." + k); return o; }
+    } catch (e) {}
+    return d;
+  }
+  function lsSet(k, v) { try { localStorage.setItem("olivia." + k, v); } catch (e) {} }
 
   function setStatus(t) { statusEl.textContent = t; }
   function setTranscript(t) {
@@ -39,7 +50,7 @@
   function applyLang() {
     if (langSel) langSel.value = langName;
     if (rec) rec.lang = LANGS[langName].sr;
-    localStorage.setItem("ullah.langname", langName);
+    lsSet("langname", langName);
   }
   if (langSel) {
     langSel.addEventListener("change", () => {
@@ -122,6 +133,7 @@
     const parts = chunk(clean.slice(0, 900), 180);
     let done = 0;
     spokeDuringTurn = true;
+    document.body.classList.add("speaking");
     setStatus("speaking... [" + (v ? v.lang : "no-voice") + "]");
     setTimeout(() => {           // Android quirk: never speak right after cancel
       parts.forEach((p) => {
@@ -143,6 +155,7 @@
 
   function onSpeakEnd() {
     stopResumeWatch();
+    document.body.classList.remove("speaking");
     setStatus(convMode ? "listening..." : "voice ready");
     if (convMode) setTimeout(() => startListen(), 400);
   }
@@ -155,7 +168,7 @@
   function applyTts() {
     ttsBtn.classList.toggle("on", ttsOn);
     ttsBtn.textContent = ttsOn ? "🔊 TTS" : "🔇 TTS";
-    localStorage.setItem("ullah.tts", ttsOn ? "1" : "0");
+    lsSet("tts", ttsOn ? "1" : "0");
   }
   ttsBtn.addEventListener("click", () => {
     ttsOn = !ttsOn;
@@ -173,14 +186,14 @@
     rateEl.value = String(rate);
     rateEl.addEventListener("input", () => {
       rate = parseFloat(rateEl.value) || 1;
-      localStorage.setItem("ullah.rate", String(rate));
+      lsSet("rate", String(rate));
     });
   }
   if (wakeBox) {
     wakeBox.checked = wakeOn;
     wakeBox.addEventListener("change", () => {
       wakeOn = wakeBox.checked;
-      localStorage.setItem("ullah.wake", wakeOn ? "1" : "0");
+      lsSet("wake", wakeOn ? "1" : "0");
       setStatus(wakeOn ? "wake word ON — say 'Olivia'" : "wake word off");
     });
   }
@@ -214,6 +227,7 @@
     listening = true;
     micBtn.classList.add("listening");
     micBtn.textContent = "● Listening...";
+    document.body.classList.add("listening");
     setStatus("listening...");
   };
   rec.onerror = (e) => {
@@ -232,6 +246,7 @@
   rec.onend = () => {
     listening = false;
     micBtn.classList.remove("listening");
+    document.body.classList.remove("listening");
     micBtn.textContent = "🎙 Mic";
     if (!spokeDuringTurn) setStatus(convMode ? "listening..." : "voice ready");
   };
@@ -267,7 +282,7 @@
   convBox.checked = convMode;
   convBox.addEventListener("change", () => {
     convMode = convBox.checked;
-    localStorage.setItem("ullah.conv", convMode ? "1" : "0");
+    lsSet("conv", convMode ? "1" : "0");
     setStatus(convMode ? "conversation ON — start speaking" : "voice ready");
     if (convMode) startListen();
     else stopListen();
