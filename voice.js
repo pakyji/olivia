@@ -61,7 +61,7 @@
     });
   }
 
-  /* ---------- gesture prime: WebView TTS ko first tap pe unlock karo ---------- */
+  /* ---------- gesture prime: unlock WebView TTS on first tap ---------- */
   let primed = false;
   function prime() {
     if (primed || !synth) return;
@@ -144,7 +144,7 @@
   function bridgeSpeak(clean) {
     try {
       if (!window.OliviaBridge || !window.OliviaBridge.speak) return false;
-      const ok = window.OliviaBridge.speak(clean.slice(0, 500));
+      const ok = window.OliviaBridge.speak(clean.slice(0, 500), LANGS[langName].tts);
       if (ok) {
         setStatus("speaking (app TTS)...");
         const ms = Math.min(20000, Math.max(1500, (clean.split(/\s+/).length / 2.5) * 1000 + 800));
@@ -161,12 +161,12 @@
     fetch("./api/act", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "speak", text: clean.slice(0, 500) }),
+      body: JSON.stringify({ action: "speak", text: clean.slice(0, 500), lang: LANGS[langName].tts }),
     })
       .then((r) => r.json())
       .then((j) => {
         if (!j.ok) { browserSpeak(clean); return; }
-        // estimate bolne ka time, phir mic dobara kholo
+        // estimate speaking time, then reopen the mic
         const ms = Math.min(20000, Math.max(1500, (clean.split(/\s+/).length / 2.5) * 1000 + 800));
         setTimeout(onSpeakEnd, ms);
       })
@@ -199,7 +199,7 @@
     let tries = 0;
     const go = () => {
       tries++;
-      if (!voices.length && synth && tries < 4) { setTimeout(go, 400); return; }  // voices late aati hain
+      if (!voices.length && synth && tries < 4) { setTimeout(go, 400); return; }  // voices can arrive late
       try { synth.resume(); } catch (e) {}   // paused synth = silent queue
       parts.forEach((p) => {
         const u = new SpeechSynthesisUtterance(p);
@@ -248,7 +248,7 @@
     const was = ttsOn;
     ttsOn = true;
     if (engine === "browser" && !synth) { setStatus("TTS not supported in this WebView"); return; }
-    setStatus("voices: " + (voices.length || synth.getVoices().length) + " | testing...");
+    setStatus("voices: " + (voices.length || (synth ? synth.getVoices().length : 0)) + " | testing...");
     speak("Hello! I'm Olivia Thomas, your personal AI assistant. How may I help you today?");
     ttsOn = was;
   });
@@ -311,7 +311,9 @@
   };
   rec.onerror = (e) => {
     listening = false;
-    if (convMode) setTimeout(startListen, 600);
+    // hard blocks (permission/service/hardware) must not trigger an endless restart loop
+    const hard = e.error === "not-allowed" || e.error === "service-not-allowed" || e.error === "audio-capture";
+    if (convMode && !hard) setTimeout(startListen, 600);
     micBtn.classList.remove("listening");
     micBtn.textContent = "🎙 Mic";
     const m = {
@@ -329,7 +331,7 @@
     document.body.classList.remove("listening");
     micBtn.textContent = "🎙 Mic";
     if (!spokeDuringTurn) setStatus(convMode ? "listening..." : "voice ready");
-    if (convMode) setTimeout(startListen, 300);   // hands-free: kaan hamesha khule
+    if (convMode) setTimeout(startListen, 300);   // hands-free: keep the mic open
   };
 
   let finalText = "";

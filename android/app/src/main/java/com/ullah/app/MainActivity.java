@@ -62,10 +62,20 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         }
     }
 
+    private static Locale localeFor(String code) {
+        if (code == null) return Locale.US;
+        String c = code.toLowerCase();
+        if (c.startsWith("hi")) return new Locale("hi", "IN");
+        if (c.startsWith("ur")) return new Locale("ur");
+        if (c.startsWith("it")) return Locale.ITALY;
+        if (c.startsWith("en")) return Locale.US;
+        return Locale.US;
+    }
+
     public class Bridge {
         @JavascriptInterface
         public String bridgeVersion() {
-            return "11";
+            return "17";
         }
 
         @JavascriptInterface
@@ -74,8 +84,15 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         }
 
         @JavascriptInterface
-        public boolean speak(String text) {
+        public boolean speak(String text, String lang) {
             if (!ttsReady || tts == null) return false;
+            int r = tts.setLanguage(localeFor(lang));
+            if (r == TextToSpeech.LANG_NOT_SUPPORTED || r == TextToSpeech.LANG_MISSING_DATA) {
+                r = tts.setLanguage(new Locale("hi", "IN"));   // best available voice for Roman Urdu/Hinglish
+            }
+            if (r == TextToSpeech.LANG_NOT_SUPPORTED || r == TextToSpeech.LANG_MISSING_DATA) {
+                tts.setLanguage(Locale.US);
+            }
             tts.speak(text, TextToSpeech.QUEUE_ADD, null, "olivia-" + System.currentTimeMillis());
             return true;
         }

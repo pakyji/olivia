@@ -1,5 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# Olivia Thomas — DUAL WATCHDOG: server + brain, dono crash pe 2s mein auto-restart
+# Olivia Thomas — DUAL WATCHDOG: server + brain, auto-restart within 2s of any crash
 cd "$(dirname "$0")" || exit 1
 termux-wake-lock 2>/dev/null
 pkill -f "olivia-watchdog" 2>/dev/null

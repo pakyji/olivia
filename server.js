@@ -39,8 +39,8 @@ function send(res, code, body, type) {
 function serveStatic(req, res, urlPath) {
   let rel = urlPath === "/" ? "/index.html" : urlPath;
   const full = path.join(ROOT, rel);
-  // prevent path traversal
-  if (!full.startsWith(ROOT)) return send(res, 403, "Forbidden", "text/plain");
+  // prevent path traversal (separator-aware: blocks /root-prefix-sibling escapes)
+  if (full !== ROOT && !full.startsWith(ROOT + path.sep)) return send(res, 403, "Forbidden", "text/plain");
   fs.readFile(full, (err, data) => {
     if (err) return send(res, 404, "Not found", "text/plain");
     let type = TYPES[path.extname(full)] || "application/octet-stream";
@@ -194,7 +194,7 @@ function walk(dir, base, out, depth) {
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
     if (ent.name.startsWith(".") || ent.name === "node_modules") continue;
     const full = path.join(dir, ent.name);
-    if (ent.isDirectory()) walk(full, base, out, depth + 1);
+    if (ent.isDirectory()) walk(full, path.join(base, ent.name), out, depth + 1);
     else if (ent.isFile()) out.push({ name: path.join(base, ent.name).split(path.sep).join("/"), buf: fs.readFileSync(full) });
   }
   return out;
@@ -267,7 +267,8 @@ async function handleAct(req, res) {
       if (action === "speak") {
         const text = String(a.text || "").slice(0, 600);
         if (!text) return send(res, 200, JSON.stringify({ ok: false, detail: "nothing to speak" }));
-        const r = await run("termux-tts-speak", ["-t", text]);
+        const lang = String(a.lang || "en-US");
+        const r = await run("termux-tts-speak", ["-l", lang, "-t", text]);
         return send(res, 200, JSON.stringify({ ok: r.ok, detail: r.ok ? "speaking" : "termux-tts unavailable: " + r.err.slice(0, 150) }));
       }
       if (action === "stop_speak") {
@@ -283,7 +284,7 @@ async function handleAct(req, res) {
       }
       if (action === "scroll") {
         const dir = String(a.dir || "down");
-        const args = dir === "up" ? ["swipe", "360", "400", "360", "900", "300"] : ["swipe", "360", "400", "300"];
+        const args = dir === "up" ? ["swipe", "360", "400", "360", "900", "300"] : ["swipe", "360", "900", "360", "400", "300"];
         const r = await run("/system/bin/input", args);
         return send(res, 200, JSON.stringify({ ok: r.ok, detail: r.ok ? "Scrolled " + dir + "." : r.err }));
       }
@@ -321,20 +322,24 @@ async function handleModels(req, res) {
   try {
     let r = await gwRequest("/v1/models");
     if (r.statusCode === 200) {
-      const j = JSON.parse(await readBody(r) || "{}");
-      return send(res, 200, JSON.stringify({ data: j.data || j.models || [] }));
+      try {
+        const j = JSON.parse(await readBody(r) || "{}");
+        return send(res, 200, JSON.stringify({ data: j.data || j.models || [] }));
+      } catch {}
     }
     // fall back to Gemini-format catalog
     r = await gwRequest("/v1beta/models");
     if (r.statusCode === 200) {
-      const j = JSON.parse(await readBody(r) || "{}");
-      const data = (j.models || []).map((m) => ({
-        id: (m.name || "").replace(/^models\//, ""),
-        name: m.displayName || m.name,
-      }));
-      return send(res, 200, JSON.stringify({ data }));
+      try {
+        const j = JSON.parse(await readBody(r) || "{}");
+        const data = (j.models || []).map((m) => ({
+          id: (m.name || "").replace(/^models\//, ""),
+          name: m.displayName || m.name,
+        }));
+        return send(res, 200, JSON.stringify({ data }));
+      } catch {}
     }
-    // gateway pahuncha hi hai (koi bhi status = reachable) -> chat ke liye kaafi
+    // gateway is reachable (any status) -> good enough for chat
     return send(res, 200, JSON.stringify({ data: [{ id: "auto", name: "auto (chat verified)" }] }));
   } catch (e) {
     return send(res, 502, JSON.stringify({ error: "gateway unreachable: " + e.message }));

@@ -39,7 +39,8 @@ function renderMarkdown(text) {
       if (nl !== -1 && /^[a-zA-Z0-9_+-]{0,15}$/.test(code.slice(0, nl).trim())) {
         code = code.slice(nl + 1);
       }
-      const tagMatch = parts[i].slice(0, parts[i].indexOf("\n")).trim();
+      const nl2 = parts[i].indexOf("\n");
+      const tagMatch = (nl2 === -1 ? "" : parts[i].slice(0, nl2)).trim();
       html += `<pre><button class="copybtn" data-copy>Copy</button><button class="copybtn savebtn" data-save data-lang="${escapeHtml(tagMatch)}">Save</button><code>${escapeHtml(code.replace(/\n$/, ""))}</code></pre>`;
     } else {
       html += escapeHtml(parts[i]).replace(/`([^`]+)`/g, "<code>$1</code>");
@@ -189,7 +190,7 @@ async function send() {
   }
   b.body.classList.remove("cursor");
   if (!acc.trim()) {
-    b.el.remove();   // khaali bubble mat dikhao
+    b.el.remove();   // don't show an empty bubble
   } else {
     b.body.innerHTML = renderMarkdown(acc);
     messages.push({ role: "assistant", content: acc });

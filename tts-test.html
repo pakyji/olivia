@@ -39,9 +39,9 @@ document.getElementById("b1").onclick = () => {
   synth.speak(u);
 };
 document.getElementById("b2").onclick = () => {
-  if (!window.OliviaBridge) return L("BAD: no OliviaBridge — purana APK! apk-v12+ install karo", "bad");
+  if (!window.OliviaBridge) return L("BAD: no OliviaBridge — old APK! Install the latest release APK.", "bad");
   L("bridge version: " + window.OliviaBridge.bridgeVersion() + " ttsReady=" + window.OliviaBridge.ttsReady());
-  const ok = window.OliviaBridge.speak("APK bridge TTS proof. Olivia speaking from the Android engine.");
+  const ok = window.OliviaBridge.speak("APK bridge TTS proof. Olivia speaking from the Android engine.", "en-US");
   L(ok ? "OK: bridge speak accepted" : "BAD: bridge speak refused (ttsReady false?)", ok ? "ok" : "bad");
 };
 document.getElementById("b3").onclick = async () => {
@@ -55,7 +55,7 @@ const PKGS = { whatsapp: "com.whatsapp" };
 document.getElementById("b4").onclick = async () => {
   if (window.OliviaBridge) {
     const ok = window.OliviaBridge.openApp(PKGS.whatsapp);
-    L(ok ? "OK: bridge opened whatsapp" : "BAD: bridge openApp false (installed nahi?)", ok ? "ok" : "bad");
+    L(ok ? "OK: bridge opened whatsapp" : "BAD: bridge openApp false (not installed?)", ok ? "ok" : "bad");
     if (ok) return;
   } else L("no bridge — server fallback try hota hai");
   try {
