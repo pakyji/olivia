@@ -1,7 +1,7 @@
 // Olivia Thomas service worker — cache app shell so it installs from Home screen.
 // Network-first for /api/* (never cache chat), cache-first for static assets.
 // v3: naya cache name => purana stale cache auto-delete.
-const CACHE = "olivia-v2";
+const CACHE = "olivia-v3";
 const SHELL = [
   "./",
   "./index.html",
@@ -29,15 +29,12 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(req.url);
   if (req.method !== "GET" || url.pathname.startsWith("/api/")) return; // proxy handles it live
   e.respondWith(
-    caches.match(req).then((hit) => {
-      if (hit) return hit;
-      return fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
-          return res;
-        })
-        .catch(() => caches.match("./index.html"));
-    })
+    fetch(req)
+      .then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+        return res;
+      })
+      .catch(() => caches.match(req).then((hit) => hit || caches.match("./index.html")))
   );
 });
