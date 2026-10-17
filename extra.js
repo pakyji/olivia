@@ -27,12 +27,12 @@
     let server = false;
     brainUp = false;
     try {
-      const r = await fetch("./", { cache: "no-store" });
+      const r = await fetch("./?hb=" + Date.now(), { cache: "no-store" });
       server = r.ok;
     } catch (e) {}
     if (server) {
       try {
-        const r = await fetch("./api/models", { cache: "no-store" });
+        const r = await fetch("./api/models?hb=" + Date.now(), { cache: "no-store" });
         brainUp = r.ok;
       } catch (e) {}
     }

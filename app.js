@@ -186,8 +186,12 @@ async function send() {
     addError(String(e.message || e));
   }
   b.body.classList.remove("cursor");
-  b.body.innerHTML = renderMarkdown(acc);
-  messages.push({ role: "assistant", content: acc });
+  if (!acc.trim()) {
+    b.el.remove();   // khaali bubble mat dikhao
+  } else {
+    b.body.innerHTML = renderMarkdown(acc);
+    messages.push({ role: "assistant", content: acc });
+  }
   saveChat();
   chatEl.scrollTop = chatEl.scrollHeight;
   busy = false;
