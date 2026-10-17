@@ -3,76 +3,134 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>ULLAH</title>
-<meta name="theme-color" content="#0b0f1a" />
+<title>Olivia Thomas</title>
+<meta name="theme-color" content="#070a12" />
 <link rel="manifest" href="./manifest.json" />
 <link rel="icon" href="./icon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="./icon.svg" />
 <style>
-  :root { --bg:#0b0f1a; --panel:#121826; --panel2:#1a2233; --fg:#e6edf7; --mut:#8b97ad; --acc:#5b8cff; --user:#264a8a; --bot:#1a2233; --code:#0d1117; }
+  :root {
+    --bg:#070a12; --panel:rgba(17,23,38,.78); --panel2:#1a2233; --fg:#e8eef9; --mut:#8b97ad;
+    --acc:#7aa2ff; --acc2:#b48cff; --user:#264a8a; --bot:rgba(26,34,51,.85); --code:#0d1117;
+    --glass:blur(14px); --grad:linear-gradient(135deg,#7aa2ff,#b48cff);
+  }
   * { box-sizing:border-box; }
   html,body { margin:0; height:100%; }
-  body { background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; display:flex; flex-direction:column; height:100dvh; }
-  header { display:flex; align-items:center; gap:8px; padding:10px 12px; background:var(--panel); border-bottom:1px solid #222c3f; position:sticky; top:0; z-index:10; }
-  header .logo { font-weight:700; font-size:18px; letter-spacing:.5px; }
-  header .logo span { color:var(--acc); }
-  select { background:var(--panel2); color:var(--fg); border:1px solid #2b3952; border-radius:8px; padding:7px 10px; font-size:13px; max-width:42vw; }
-  button { background:var(--panel2); color:var(--fg); border:1px solid #2b3952; border-radius:8px; padding:7px 12px; font-size:13px; cursor:pointer; }
-  button:active { background:#233046; }
-  button.primary { background:var(--acc); border-color:var(--acc); color:#fff; font-weight:600; }
+  body {
+    background:
+      radial-gradient(1100px 550px at 85% -10%, rgba(122,162,255,.16), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(180,140,255,.13), transparent 60%),
+      var(--bg);
+    color:var(--fg);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    display:flex; flex-direction:column; height:100dvh;
+  }
+  header, #voicebar, footer {
+    background:var(--panel); backdrop-filter:var(--glass); -webkit-backdrop-filter:var(--glass);
+    border-color:#222c3f;
+  }
+  header { display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid #222c3f; position:sticky; top:0; z-index:10; }
+  header .logo { font-weight:800; font-size:17px; letter-spacing:.4px; background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; white-space:nowrap; }
+  #health { font-size:11px; color:var(--mut); background:var(--panel2); border:1px solid #2b3952; padding:3px 8px; border-radius:999px; white-space:nowrap; }
+  select { background:var(--panel2); color:var(--fg); border:1px solid #2b3952; border-radius:8px; padding:7px 10px; font-size:13px; max-width:36vw; }
+  button { background:var(--panel2); color:var(--fg); border:1px solid #2b3952; border-radius:10px; padding:7px 12px; font-size:13px; cursor:pointer; transition:filter .15s; }
+  button:active { filter:brightness(1.25); }
+  button.primary { background:var(--grad); border:none; color:#fff; font-weight:700; box-shadow:0 4px 18px rgba(122,162,255,.35); }
   .spacer { flex:1; }
-  #chat { flex:1; overflow-y:auto; padding:14px 12px 6px; display:flex; flex-direction:column; gap:12px; }
-  .msg { max-width:88%; padding:10px 13px; border-radius:14px; font-size:15px; line-height:1.5; white-space:pre-wrap; word-wrap:break-word; overflow-wrap:anywhere; }
-  .msg.user { align-self:flex-end; background:var(--user); border-bottom-right-radius:4px; }
-  .msg.bot { align-self:flex-start; background:var(--bot); border:1px solid #26324a; border-bottom-left-radius:4px; }
-  .msg.bot .role { color:var(--acc); font-size:12px; font-weight:700; margin-bottom:4px; }
+  #menubtn { font-size:16px; padding:6px 10px; }
+  #chat { flex:1; overflow-y:auto; padding:16px 12px 6px; display:flex; flex-direction:column; gap:12px; }
+  .msg { max-width:88%; padding:11px 14px; border-radius:18px; font-size:15px; line-height:1.55; white-space:pre-wrap; word-wrap:break-word; overflow-wrap:anywhere; box-shadow:0 6px 20px rgba(0,0,0,.35); }
+  .msg.user { align-self:flex-end; background:linear-gradient(135deg,#2b57a8,#264a8a); border-bottom-right-radius:6px; }
+  .msg.bot { align-self:flex-start; background:var(--bot); border:1px solid #2a3550; border-bottom-left-radius:6px; backdrop-filter:var(--glass); }
+  .msg.bot .role { background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; font-size:12px; font-weight:800; margin-bottom:4px; letter-spacing:.6px; text-transform:uppercase; }
   .msg.err { background:#3a1420; border:1px solid #7a2233; color:#ffb3c0; align-self:center; font-size:13px; }
-  pre { background:var(--code); border:1px solid #26324a; border-radius:10px; padding:10px; margin:8px 0 2px; overflow-x:auto; position:relative; white-space:pre; }
+  pre { background:var(--code); border:1px solid #26324a; border-radius:12px; padding:10px; margin:8px 0 2px; overflow-x:auto; position:relative; white-space:pre; }
   pre code { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:13px; }
   .copybtn { position:absolute; top:6px; right:6px; font-size:11px; padding:3px 8px; background:#1f2b3f; }
-  footer { padding:8px 10px; background:var(--panel); border-top:1px solid #222c3f; display:flex; gap:8px; align-items:flex-end; }
-  textarea { flex:1; resize:none; background:var(--panel2); color:var(--fg); border:1px solid #2b3952; border-radius:10px; padding:10px; font-size:15px; font-family:inherit; max-height:120px; min-height:44px; }
+  #chips { display:flex; gap:6px; padding:6px 10px; overflow-x:auto; }
+  .chip { flex:0 0 auto; padding:6px 12px; font-size:12px; border-radius:999px; background:var(--panel2); border:1px solid #2b3952; color:var(--mut); }
+  footer { padding:8px 10px; border-top:1px solid #222c3f; display:flex; gap:8px; align-items:flex-end; }
+  textarea { flex:1; resize:none; background:var(--panel2); color:var(--fg); border:1px solid #2b3952; border-radius:12px; padding:10px; font-size:15px; font-family:inherit; max-height:120px; min-height:44px; }
+  textarea:focus { outline:1px solid var(--acc); }
   .cursor::after { content:"▋"; color:var(--acc); animation:blink 1s steps(2) infinite; }
   @keyframes blink { 50% { opacity:0; } }
   .hint { color:var(--mut); font-size:12px; text-align:center; padding:6px; }
-  #voicebar { display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--panel); border-bottom:1px solid #222c3f; flex-wrap:wrap; }
+  #voicebar { display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid #222c3f; flex-wrap:wrap; }
   #voicebar button { padding:7px 11px; }
-  #mic.listening { background:#7a2233; border-color:#b0304a; color:#fff; animation:pulse 1.3s infinite; }
+  #mic.listening { background:linear-gradient(135deg,#8a2432,#7a2233); border-color:#b0304a; color:#fff; animation:pulse 1.3s infinite; }
   @keyframes pulse { 50% { opacity:.65; } }
   #mic:disabled { opacity:.45; }
-  .toggle.on { background:var(--acc); border-color:var(--acc); color:#fff; }
+  .toggle.on { background:var(--grad); border-color:transparent; color:#fff; }
   .convlabel { font-size:13px; color:var(--mut); display:flex; align-items:center; gap:5px; }
   #vstatus { color:var(--mut); font-size:12px; }
   #transcript { min-height:0; padding:0 12px; color:var(--acc); font-size:14px; }
   #transcript:not(:empty) { padding:6px 12px; }
+  /* premium drawer menu */
+  #scrim { position:fixed; inset:0; background:rgba(0,0,0,.5); opacity:0; pointer-events:none; transition:opacity .25s; z-index:40; }
+  #scrim.show { opacity:1; pointer-events:auto; }
+  #drawer {
+    position:fixed; top:0; right:0; bottom:0; width:min(320px,86vw); z-index:50;
+    background:rgba(13,18,30,.92); backdrop-filter:var(--glass); -webkit-backdrop-filter:var(--glass);
+    border-left:1px solid #2a3550; padding:18px 16px; transform:translateX(102%);
+    transition:transform .28s cubic-bezier(.2,.8,.2,1); display:flex; flex-direction:column; gap:14px; overflow-y:auto;
+  }
+  #drawer.open { transform:translateX(0); }
+  #drawer h2 { margin:0; font-size:16px; background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; letter-spacing:.5px; }
+  #drawer label { font-size:13px; color:var(--mut); display:flex; flex-direction:column; gap:6px; }
+  #drawer select, #drawer input[type=range] { width:100%; }
+  #drawer .row { display:flex; align-items:center; justify-content:space-between; font-size:14px; }
+  #drawer button { width:100%; }
+  #about { font-size:11px; color:var(--mut); line-height:1.5; margin-top:auto; }
 </style>
 </head>
 <body>
 <header>
-  <div class="logo">UL<span>LAH</span></div>
+  <div class="logo">Olivia Thomas</div>
   <div class="spacer"></div>
   <select id="model" title="Model"></select>
-  <button id="newchat">New chat</button>
+  <button id="menubtn" title="Menu">☰</button>
 </header>
 
 <div id="voicebar">
-  <button id="mic" title="Bolna">🎙 Mic</button>
-  <button id="lang" class="toggle" title="Hindi / English">hi-IN</button>
+  <button id="mic" title="Speak">🎙 Mic</button>
+  <button id="tts" class="toggle on" title="Speech on/off">🔊 TTS</button>
+  <button id="voicetest" title="Test voice">🔔 Test</button>
   <button id="stopspk" title="Stop speaking">⏹ Stop</button>
-  <label class="convlabel"><input type="checkbox" id="conv" /> Baat-cheet loop</label>
+  <label class="convlabel"><input type="checkbox" id="conv" /> Conversation</label>
   <div class="spacer"></div>
   <span id="vstatus">voice ready</span>
 </div>
 <div id="transcript"></div>
 
 <div id="chat"></div>
-<div class="hint" id="hint">Hinglish coding agent — poocho kuch bhi</div>
+<div id="chips"></div>
+<div class="hint" id="hint">Your personal AI assistant — ask anything</div>
 <footer>
-  <textarea id="input" rows="1" placeholder="Apna sawaal likho..."></textarea>
+  <textarea id="input" rows="1" placeholder="Type your question..."></textarea>
   <button id="send" class="primary">Send</button>
 </footer>
+
+<div id="scrim"></div>
+<div id="drawer">
+  <h2>Olivia — Menu</h2>
+  <label>Language
+    <select id="langsel">
+      <option value="English">English</option>
+      <option value="Roman Urdu">Roman Urdu</option>
+      <option value="Italian">Italian</option>
+    </select>
+  </label>
+  <label>Speech speed
+    <input type="range" id="rate" min="0.6" max="1.6" step="0.1" value="1" />
+  </label>
+  <div class="row"><span>Wake word “Olivia”</span><input type="checkbox" id="wake" /></div>
+  <button id="newchat"> New chat</button>
+  <div id="about"></div>
+</div>
+
 <script src="./app.js"></script>
 <script src="./voice.js"></script>
+<script src="./extra.js"></script>
 <script>
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("./sw.js").catch(() => {});

@@ -1,13 +1,13 @@
 {
-  "name": "ULLAH",
-  "short_name": "ULLAH",
-  "description": "Voice-enabled Hinglish coding agent",
+  "name": "Olivia Thomas",
+  "short_name": "Olivia",
+  "description": "Voice-first personal AI assistant and coding agent",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
   "orientation": "portrait",
-  "background_color": "#0b0f1a",
-  "theme_color": "#0b0f1a",
+  "background_color": "#070a12",
+  "theme_color": "#070a12",
   "icons": [
     {
       "src": "icon.svg",

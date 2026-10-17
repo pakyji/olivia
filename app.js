@@ -1,4 +1,4 @@
-// ULLAH front-end — vanilla JS, no build step.
+// Olivia Thomas front-end — vanilla JS, no build step.
 const chatEl = document.getElementById("chat");
 const inputEl = document.getElementById("input");
 const sendBtn = document.getElementById("send");
@@ -50,7 +50,7 @@ function bubble(role) {
   if (role !== "user") {
     const r = document.createElement("div");
     r.className = "role";
-    r.textContent = "ULLAH";
+    r.textContent = "Olivia";
     d.appendChild(r);
   }
   const body = document.createElement("div");
@@ -93,6 +93,17 @@ chatEl.addEventListener("click", (e) => {
 async function send() {
   const text = inputEl.value.trim();
   if (!text || busy) return;
+  // JARVIS-style instant local commands (extra.js) can intercept
+  if (window.ullahPre && window.ullahPre(text)) {
+    messages.push({ role: "user", content: text });
+    const ub0 = bubble("user");
+    ub0.body.textContent = text;
+    chatEl.appendChild(ub0.el);
+    saveChat();
+    chatEl.scrollTop = chatEl.scrollHeight;
+    inputEl.value = "";
+    return;
+  }
   busy = true;
   if (window.ullah && window.ullah.onState) window.ullah.onState({ busy: true });
   inputEl.value = "";
@@ -119,7 +130,11 @@ async function send() {
     const resp = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: modelSel.value, messages }),
+      body: JSON.stringify({
+        model: modelSel.value,
+        messages,
+        lang: window.ullahLang ? window.ullahLang() : "English",
+      }),
     });
     if (!resp.ok) {
       let detail = "";
@@ -174,11 +189,11 @@ inputEl.addEventListener("input", () => {
   inputEl.style.height = "auto";
   inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + "px";
 });
-newBtn.addEventListener("click", () => {
+if (newBtn) newBtn.addEventListener("click", () => {
   messages = [];
   saveChat();
   chatEl.innerHTML = "";
-  addError("Naya chat shuru. Bolo!");
+  addError("New chat started. Ask me anything!");
   chatEl.lastChild.className = "hint";
 });
 modelSel.addEventListener("change", () => {
@@ -207,10 +222,20 @@ async function loadModels() {
   modelSel.value = [...modelSel.options].some((o) => o.value === saved) ? saved : "auto";
 }
 
-// Hooks for voice.js (Phase 2). app.js stays usable without voice.
+// Hooks for voice.js / extra.js. app.js stays usable without them.
 window.ullah = {
   isBusy: () => busy,
   sendText: (t) => { inputEl.value = t; send(); },
+  // local (JARVIS-style) reply: bubble + speak, no LLM round-trip
+  localReply: (text) => {
+    const b = bubble("assistant");
+    b.body.textContent = text;
+    chatEl.appendChild(b.el);
+    messages.push({ role: "assistant", content: text });
+    saveChat();
+    chatEl.scrollTop = chatEl.scrollHeight;
+    if (window.ullah.onReply) window.ullah.onReply(text);
+  },
   onReply: null, // set by voice.js: called with reply text after it finishes
   onState: null, // called with {busy} changes
 };

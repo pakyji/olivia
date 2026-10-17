@@ -1,11 +1,13 @@
-// ULLAH service worker — cache app shell so it installs from Home screen.
+// Olivia Thomas service worker — cache app shell so it installs from Home screen.
 // Network-first for /api/* (never cache chat), cache-first for static assets.
-const CACHE = "ullah-v1";
+// v3: naya cache name => purana stale cache auto-delete.
+const CACHE = "ullah-v3";
 const SHELL = [
   "./",
   "./index.html",
   "./app.js",
   "./voice.js",
+  "./extra.js",
   "./manifest.json",
   "./icon.svg",
 ];

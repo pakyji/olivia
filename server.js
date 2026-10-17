@@ -1,10 +1,10 @@
-// ULLAH server — Node stdlib only. Proxies to the local OmniRoute gateway so the
+// Olivia Thomas server — Node stdlib only. Proxies to the local OmniRoute gateway so the
 // API key never reaches the browser.
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
-const PORT = process.env.PORT || 8081;
+const PORT = process.env.PORT || 8080;
 const GATEWAY = process.env.OMNIROUTE_URL || "http://127.0.0.1:20128";
 const API_KEY = process.env.OMNIROUTE_KEY || "omniroute-local";
 const ROOT = __dirname;
@@ -24,7 +24,7 @@ function readPersona() {
   try {
     return fs.readFileSync(path.join(ROOT, "persona.txt"), "utf8").trim();
   } catch {
-    return "You are ULLAH, a helpful coding agent.";
+    return "You are Olivia Thomas, a helpful coding agent.";
   }
 }
 
@@ -47,7 +47,7 @@ function serveStatic(req, res, urlPath) {
   });
 }
 
-// POST /api/chat  { model, messages:[{role,content}] }  -> streams SSE back
+// POST /api/chat  { model, messages:[{role,content}], lang }  -> streams SSE back
 async function handleChat(req, res) {
   let body = "";
   req.on("data", (c) => (body += c));
@@ -59,7 +59,9 @@ async function handleChat(req, res) {
       return send(res, 400, JSON.stringify({ error: "bad json" }));
     }
     const messages = Array.isArray(payload.messages) ? payload.messages.slice() : [];
-    messages.unshift({ role: "system", content: readPersona() });
+    let system = readPersona();
+    if (payload.lang) system += "\n\nRESPOND STRICTLY IN: " + payload.lang;
+    messages.unshift({ role: "system", content: system });
     const out = {
       model: payload.model || "auto",
       stream: true,
@@ -137,6 +139,6 @@ http
     return send(res, 405, "Method not allowed", "text/plain");
   })
   .listen(PORT, () => {
-    console.log(`ULLAH running: http://127.0.0.1:${PORT}`);
+    console.log(`Olivia running: http://127.0.0.1:${PORT}`);
     console.log(`Gateway: ${GATEWAY}`);
   });
