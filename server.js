@@ -40,7 +40,8 @@ function serveStatic(req, res, urlPath) {
   if (!full.startsWith(ROOT)) return send(res, 403, "Forbidden", "text/plain");
   fs.readFile(full, (err, data) => {
     if (err) return send(res, 404, "Not found", "text/plain");
-    const type = TYPES[path.extname(full)] || "application/octet-stream";
+    let type = TYPES[path.extname(full)] || "application/octet-stream";
+    if (path.basename(full) === "manifest.json") type = "application/manifest+json";
     res.writeHead(200, { "Content-Type": type });
     res.end(data);
   });

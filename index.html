@@ -4,6 +4,10 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>ULLAH</title>
+<meta name="theme-color" content="#0b0f1a" />
+<link rel="manifest" href="./manifest.json" />
+<link rel="icon" href="./icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="./icon.svg" />
 <style>
   :root { --bg:#0b0f1a; --panel:#121826; --panel2:#1a2233; --fg:#e6edf7; --mut:#8b97ad; --acc:#5b8cff; --user:#264a8a; --bot:#1a2233; --code:#0d1117; }
   * { box-sizing:border-box; }
@@ -69,5 +73,10 @@
 </footer>
 <script src="./app.js"></script>
 <script src="./voice.js"></script>
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js").catch(() => {});
+}
+</script>
 </body>
 </html>
