@@ -23,9 +23,10 @@
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   let rec = null;
   let listening = false;
-  let convMode = lsGet("conv", "1") === "1";
+  let convMode = (function () { try { return (localStorage.getItem("olivia.conv") || "1") === "1"; } catch (e) { return true; } })();
   let wakeOn = lsGet("wake", "0") === "1";
   let ttsOn = lsGet("tts", "1") !== "0";
+  let engine = lsGet("ttsengine", "device");   // device = Termux:API TTS, browser = Web Speech
   let rate = parseFloat(lsGet("rate", "1")) || 1;
   let spokeDuringTurn = false;
 
@@ -140,10 +141,37 @@
     }, 4000);
   }
 
+  function deviceSpeak(clean) {
+    setStatus("speaking (device TTS)...");
+    fetch("./api/act", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "speak", text: clean.slice(0, 500) }),
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j.ok) { browserSpeak(clean); return; }
+        // estimate bolne ka time, phir mic dobara kholo
+        const ms = Math.min(20000, Math.max(1500, (clean.split(/\s+/).length / 2.5) * 1000 + 800));
+        setTimeout(onSpeakEnd, ms);
+      })
+      .catch(() => browserSpeak(clean));
+  }
+
   function speak(text) {
-    if (!synth || !ttsOn) return onSpeakEnd();
+    if (!ttsOn) return onSpeakEnd();
     const clean = speakable(text);
     if (!clean) return onSpeakEnd();
+    if (engine === "device") { deviceSpeak(clean); return; }
+    if (!synth) return onSpeakEnd();
+    browserSpeakInner(clean);
+  }
+
+  function browserSpeak(clean) {
+    if (!synth) return onSpeakEnd();
+    browserSpeakInner(clean);
+  }
+  function browserSpeakInner(clean) {
     try { synth.cancel(); } catch (e) {}
     curU = [];
     const code = LANGS[langName].tts;
@@ -185,6 +213,7 @@
   stopBtn.addEventListener("click", () => {
     if (synth) { try { synth.cancel(); } catch (e) {} }
     stopResumeWatch();
+    fetch("./api/act", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "stop_speak" }) }).catch(() => {});
     setStatus("stopped");
   });
 
@@ -202,11 +231,20 @@
   testBtn.addEventListener("click", () => {
     const was = ttsOn;
     ttsOn = true;
-    if (!synth) { setStatus("TTS not supported in this WebView"); return; }
+    if (engine === "browser" && !synth) { setStatus("TTS not supported in this WebView"); return; }
     setStatus("voices: " + (voices.length || synth.getVoices().length) + " | testing...");
     speak("Hello! I'm Olivia Thomas, your personal AI assistant. How may I help you today?");
     ttsOn = was;
   });
+  const engineSel = document.getElementById("ttsengine");
+  if (engineSel) {
+    engineSel.value = engine;
+    engineSel.addEventListener("change", () => {
+      engine = engineSel.value === "browser" ? "browser" : "device";
+      lsSet("ttsengine", engine);
+      setStatus("voice engine: " + engine);
+    });
+  }
   if (rateEl) {
     rateEl.value = String(rate);
     rateEl.addEventListener("input", () => {
@@ -257,6 +295,7 @@
   };
   rec.onerror = (e) => {
     listening = false;
+    if (convMode) setTimeout(startListen, 600);
     micBtn.classList.remove("listening");
     micBtn.textContent = "🎙 Mic";
     const m = {
@@ -303,6 +342,10 @@
       }
     }
   };
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && convMode && !listening) setTimeout(startListen, 300);
+  });
 
   /* ---------- conversation loop ---------- */
   convBox.checked = convMode;

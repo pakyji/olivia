@@ -241,6 +241,16 @@ async function handleAct(req, res) {
         const r = await run(process.execPath, [full], { cwd: path.join(PROJECTS, proj), timeout: 8000 });
         return send(res, 200, JSON.stringify({ ok: r.ok, detail: (r.out || r.err || "no output").slice(0, 800) }));
       }
+      if (action === "speak") {
+        const text = String(a.text || "").slice(0, 600);
+        if (!text) return send(res, 200, JSON.stringify({ ok: false, detail: "nothing to speak" }));
+        const r = await run("termux-tts-speak", ["-t", text]);
+        return send(res, 200, JSON.stringify({ ok: r.ok, detail: r.ok ? "speaking" : "termux-tts unavailable: " + r.err.slice(0, 150) }));
+      }
+      if (action === "stop_speak") {
+        const r = await run("termux-tts-stop", []);
+        return send(res, 200, JSON.stringify({ ok: true, detail: "stopped" }));
+      }
       if (action === "send_sms") {
         const to = String(a.to || "").replace(/[^\d+]/g, "");
         const text = String(a.text || "");
