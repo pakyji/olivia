@@ -183,7 +183,9 @@ async function send() {
       }
     }
   } catch (e) {
-    addError(String(e.message || e));
+    let m = String(e.message || e);
+    if (/Failed to fetch/i.test(m)) m += " — server down? Termux mein: bash start-olivia.sh";
+    addError(m);
   }
   b.body.classList.remove("cursor");
   if (!acc.trim()) {

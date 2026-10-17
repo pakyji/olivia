@@ -4,6 +4,9 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
+process.on("uncaughtException", (e) => { try { console.error("UNCAUGHT:", e && e.message); } catch (e2) {} });
+process.on("unhandledRejection", (e) => { try { console.error("UNHANDLED:", e && e.message); } catch (e2) {} });
+
 const PORT = process.env.PORT || 8080;
 const GATEWAY = process.env.OMNIROUTE_URL || "http://127.0.0.1:20128";
 const API_KEY = process.env.OMNIROUTE_KEY || "omniroute-local";
@@ -47,6 +50,41 @@ function serveStatic(req, res, urlPath) {
   });
 }
 
+/* ---------- gateway calls via Node stdlib http (fetch-free, crash-proof) ---------- */
+function readBody(r) {
+  return new Promise((resolve) => {
+    let d = "";
+    r.on("data", (c) => (d += c));
+    r.on("end", () => resolve(d));
+  });
+}
+function gwRequest(pathname, bodyObj) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(GATEWAY + pathname);
+    const payload = bodyObj ? Buffer.from(JSON.stringify(bodyObj)) : null;
+    const headers = { Authorization: "Bearer " + API_KEY };
+    if (payload) {
+      headers["Content-Type"] = "application/json";
+      headers["Content-Length"] = payload.length;
+    }
+    const req = http.request(
+      {
+        host: u.hostname,
+        port: u.port || 80,
+        path: u.pathname + (u.search || ""),
+        method: bodyObj ? "POST" : "GET",
+        headers,
+        timeout: 25000,
+      },
+      (res) => resolve(res)
+    );
+    req.on("error", reject);
+    req.on("timeout", () => req.destroy(new Error("gateway timeout")));
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
+
 // POST /api/chat  { model, messages:[{role,content}], lang }  -> streams SSE back
 async function handleChat(req, res) {
   let body = "";
@@ -69,37 +107,22 @@ async function handleChat(req, res) {
     };
     let upstream;
     try {
-      upstream = await fetch(GATEWAY + "/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer " + API_KEY,
-        },
-        body: JSON.stringify(out),
-      });
+      upstream = await gwRequest("/v1/chat/completions", out);
     } catch (e) {
       return send(res, 502, JSON.stringify({ error: "gateway unreachable: " + e.message }));
     }
-    if (!upstream.ok) {
-      const txt = await upstream.text().catch(() => "");
-      return send(res, upstream.status, JSON.stringify({ error: "gateway error", detail: txt.slice(0, 500) }));
+    if (!upstream.statusCode || upstream.statusCode >= 400) {
+      const txt = await readBody(upstream);
+      return send(res, upstream.statusCode || 502, JSON.stringify({ error: "gateway error", detail: txt.slice(0, 500) }));
     }
     res.writeHead(200, {
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
     });
-    const reader = upstream.body.getReader();
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        res.write(Buffer.from(value));
-      }
-    } catch {
-      // client disconnected or upstream ended
-    }
-    res.end();
+    upstream.on("data", (c) => res.write(c));
+    upstream.on("end", () => res.end());
+    upstream.on("error", () => res.end());
   });
 }
 
@@ -296,17 +319,15 @@ async function handleAct(req, res) {
 // GET /api/models -> {"data":[{id,...}]}  tries /v1/models then /v1beta/models
 async function handleModels(req, res) {
   try {
-    let r = await fetch(GATEWAY + "/v1/models", {
-      headers: { Authorization: "Bearer " + API_KEY },
-    });
-    if (r.ok) {
-      const j = await r.json();
+    let r = await gwRequest("/v1/models");
+    if (r.statusCode === 200) {
+      const j = JSON.parse(await readBody(r) || "{}");
       return send(res, 200, JSON.stringify({ data: j.data || j.models || [] }));
     }
     // fall back to Gemini-format catalog
-    r = await fetch(GATEWAY + "/v1beta/models");
-    if (r.ok) {
-      const j = await r.json();
+    r = await gwRequest("/v1beta/models");
+    if (r.statusCode === 200) {
+      const j = JSON.parse(await readBody(r) || "{}");
       const data = (j.models || []).map((m) => ({
         id: (m.name || "").replace(/^models\//, ""),
         name: m.displayName || m.name,
@@ -330,6 +351,6 @@ http
     return send(res, 405, "Method not allowed", "text/plain");
   })
   .listen(PORT, () => {
-    console.log(`Olivia running: http://127.0.0.1:${PORT}`);
+    console.log(`Olivia running: http://127.0.0.1:${PORT} (node ${process.version})`);
     console.log(`Gateway: ${GATEWAY}`);
   });
