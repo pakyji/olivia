@@ -37,6 +37,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: apk-v${{ github.run_number }}
-          name: ULLAH APK (build ${{ github.run_number }})
+          name: Olivia APK (build ${{ github.run_number }})
           files: android/app/build/outputs/apk/debug/app-debug.apk
           generate_release_notes: true
