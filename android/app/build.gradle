@@ -1,3 +1,6 @@
+plugins {
+    id 'com.android.application'
+}
 android {
     namespace 'com.ullah.app'
     compileSdk 34
