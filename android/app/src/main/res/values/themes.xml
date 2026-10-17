@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Ullah" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#0b0f1a</item>
+        <item name="android:statusBarColor">#0b0f1a</item>
+        <item name="android:navigationBarColor">#0b0f1a</item>
+    </style>
+
+    <style name="Theme.Ullah.Splash" parent="@style/Theme.Ullah">
+        <item name="android:windowBackground">@drawable/splash</item>
+    </style>
+</resources>
