@@ -29,6 +29,8 @@
   let engine = lsGet("ttsengine", "device");   // device = Termux:API TTS, browser = Web Speech
   let rate = parseFloat(lsGet("rate", "1")) || 1;
   let spokeDuringTurn = false;
+  let speakingUntil = 0;   // mic lock: Olivia bolte waqt + margin tak mic band (echo-loop killer)
+  let lastSpoken = "";     // last reply text, echo self-match ke liye
 
   function lsGet(k, d) {
     try {
@@ -148,6 +150,8 @@
       if (ok) {
         setStatus("speaking (app TTS)...");
         const ms = Math.min(20000, Math.max(1500, (clean.split(/\s+/).length / 2.5) * 1000 + 800));
+        speakingUntil = Date.now() + ms + 2500;   // estimate + safety margin
+        lastSpoken = clean;
         setTimeout(onSpeakEnd, ms);
         return true;
       }
@@ -168,6 +172,8 @@
         if (!j.ok) { browserSpeak(clean); return; }
         // estimate speaking time, then reopen the mic
         const ms = Math.min(20000, Math.max(1500, (clean.split(/\s+/).length / 2.5) * 1000 + 800));
+        speakingUntil = Date.now() + ms + 2500;
+        lastSpoken = clean;
         setTimeout(onSpeakEnd, ms);
       })
       .catch(() => browserSpeak(clean));
@@ -192,6 +198,8 @@
     const code = LANGS[langName].tts;
     const v = pickVoice(code);
     const parts = chunk(clean.slice(0, 900), 180);
+    speakingUntil = Date.now() + Math.min(30000, (clean.split(/\s+/).length / 2.5) * 1000 + 2500);
+    lastSpoken = clean;
     let done = 0;
     spokeDuringTurn = true;
     document.body.classList.add("speaking");
@@ -226,6 +234,7 @@
     if (convMode) setTimeout(() => startListen(), 400);
   }
   stopBtn.addEventListener("click", () => {
+    speakingUntil = 0;   // pressing Stop releases the mic lock immediately
     if (synth) { try { synth.cancel(); } catch (e) {} }
     stopResumeWatch();
     fetch("./api/act", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "stop_speak" }) }).catch(() => {});
@@ -291,6 +300,7 @@
 
   function startListen() {
     if (listening || (window.ullah && window.ullah.isBusy && window.ullah.isBusy())) return;
+    if (Date.now() < speakingUntil) return;   // Olivia is still speaking — mic locked (echo-loop killer)
     try { rec.start(); } catch (e) { /* already started */ }
   }
   function stopListen() {
@@ -354,6 +364,16 @@
         return;
       }
       setTranscript(send);
+      // echo guard: Olivia ki apni awaaz mic ne sun li to discard (self-reply loop breaker)
+      const low = send.toLowerCase();
+      const SELF = /^(i can open|opening |battery at|system report|it's |today is |hello there|zip ready|sms sent|saved |pressed |scrolled |tapped |speaking|voices?:|language:)/;
+      const prev = lastSpoken.toLowerCase().replace(/[^a-z0-9 ]/g, "").slice(0, 25);
+      const cur = low.replace(/[^a-z0-9 ]/g, "").slice(0, 25);
+      if (SELF.test(low) || (prev && cur && cur === prev)) {
+        setTranscript("");
+        if (convMode) setTimeout(startListen, 300);
+        return;
+      }
       if (window.ullah && window.ullah.sendText) {
         spokeDuringTurn = false;
         window.ullah.sendText(send);

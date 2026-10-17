@@ -100,7 +100,11 @@
         if (window.OliviaBridge && window.OliviaBridge.openUrl(name)) return "Opening " + name;
         return act({ action: "open_url", url: name });
       }
-      if (!APPS.includes(name)) return "I can open: " + APPS.join(", ");
+      const toks = name.split(/\s+/);
+      const norm = name.replace(/\s+/g, "");
+      const hit = APPS.includes(name) ? name : APPS.includes(norm) ? norm : toks.find((c) => APPS.includes(c));
+      if (!hit) return "I can open: " + APPS.join(", ");
+      name = hit;
       if (window.OliviaBridge && window.OliviaBridge.openApp && PKGS[name]) {
         const ok = window.OliviaBridge.openApp(PKGS[name]);
         return ok ? "Opening " + name + "." : name + " does not seem to be installed.";
@@ -161,4 +165,8 @@
   /* ---------- drawer extras ---------- */
   const newBtn = document.getElementById("newchat");
   if (newBtn) newBtn.addEventListener("click", closeDrawer);
+  const about = document.getElementById("about");
+  if (about && window.OliviaBridge && window.OliviaBridge.bridgeVersion) {
+    try { about.textContent += " Bridge v" + window.OliviaBridge.bridgeVersion() + "."; } catch (e) {}
+  }
 })();
