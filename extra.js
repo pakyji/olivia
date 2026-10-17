@@ -23,6 +23,8 @@
   logo.insertAdjacentElement("afterend", pill);
 
   let brainUp = false;
+  let serverFailStreak = 0;
+  let lastRevive = 0;
   async function checkHealth() {
     let server = false;
     brainUp = false;
@@ -31,12 +33,24 @@
       server = r.ok;
     } catch (e) {}
     if (server) {
+      serverFailStreak = 0;
       try {
         const r = await fetch("./api/models?hb=" + Date.now(), { cache: "no-store" });
         brainUp = r.ok;
       } catch (e) {}
+    } else {
+      // server down twice in a row = Termux got killed. Self-heal: launch Termux
+      // (foreground) so its .bashrc self-heal block restarts Olivia automatically.
+      serverFailStreak++;
+      if (serverFailStreak >= 2 && window.OliviaBridge && window.OliviaBridge.openApp && Date.now() - lastRevive > 120000) {
+        lastRevive = Date.now();
+        serverFailStreak = 0;
+        pill.textContent = "🔴 reviving…";
+        try { window.OliviaBridge.openApp("com.termux"); } catch (e) {}
+      }
     }
-    pill.textContent = server ? (brainUp ? "🟢 online" : "🟠 brain off") : "🔴 server off";
+    if (server) pill.textContent = brainUp ? "🟢 online" : "🟠 brain off";
+    else if (pill.textContent !== "🔴 reviving…") pill.textContent = "🔴 server off";
     pill.title = "server = start-olivia.sh | brain = OmniRoute gateway";
   }
   checkHealth();
