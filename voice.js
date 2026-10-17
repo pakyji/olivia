@@ -141,7 +141,22 @@
     }, 4000);
   }
 
+  function bridgeSpeak(clean) {
+    try {
+      if (!window.OliviaBridge || !window.OliviaBridge.speak) return false;
+      const ok = window.OliviaBridge.speak(clean.slice(0, 500));
+      if (ok) {
+        setStatus("speaking (app TTS)...");
+        const ms = Math.min(20000, Math.max(1500, (clean.split(/\s+/).length / 2.5) * 1000 + 800));
+        setTimeout(onSpeakEnd, ms);
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
   function deviceSpeak(clean) {
+    if (bridgeSpeak(clean)) return;
     setStatus("speaking (device TTS)...");
     fetch("./api/act", {
       method: "POST",
@@ -214,6 +229,7 @@
     if (synth) { try { synth.cancel(); } catch (e) {} }
     stopResumeWatch();
     fetch("./api/act", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "stop_speak" }) }).catch(() => {});
+    try { if (window.OliviaBridge && window.OliviaBridge.stopSpeak) window.OliviaBridge.stopSpeak(); } catch (e) {}
     setStatus("stopped");
   });
 

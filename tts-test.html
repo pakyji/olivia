@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Olivia TTS/App proof page</title>
+<style>
+  body { background:#070a12; color:#e8eef9; font-family:system-ui,sans-serif; padding:16px; }
+  h1 { font-size:18px; }
+  button { display:block; width:100%; margin:8px 0; padding:12px; font-size:15px; border-radius:10px; border:1px solid #2b3952; background:#1a2233; color:#e8eef9; }
+  pre { background:#0d1117; border:1px solid #26324a; border-radius:10px; padding:10px; white-space:pre-wrap; font-size:12px; min-height:120px; }
+  .ok { color:#7affc4; } .bad { color:#ff5b7a; }
+</style>
+</head>
+<body>
+<h1>Olivia proof page 🔬</h1>
+<p style="color:#8b97ad;font-size:13px">Har button dabao — result neeche log mein. Screenshot bhejo.</p>
+<button id="b1">1️⃣ Browser TTS (Web Speech)</button>
+<button id="b2">2️⃣ APK bridge TTS (Android engine)</button>
+<button id="b3">3️⃣ Termux device TTS (termux-tts-speak)</button>
+<button id="b4">4️⃣ Open WhatsApp (bridge → server fallback)</button>
+<button id="b5">5️⃣ Open YouTube URL (bridge)</button>
+<pre id="log">ready.\n</pre>
+<script>
+const log = document.getElementById("log");
+function L(msg, cls) {
+  const t = new Date().toLocaleTimeString();
+  log.textContent += "[" + t + "] " + msg + "\n";
+  log.scrollTop = log.scrollHeight;
+}
+document.getElementById("b1").onclick = () => {
+  const synth = window.speechSynthesis;
+  if (!synth) return L("BAD: window.speechSynthesis missing", "bad");
+  const vs = synth.getVoices();
+  L("browser: voices=" + vs.length + " lang-default=" + (vs.find(v=>v.default)||{}).lang);
+  const u = new SpeechSynthesisUtterance("Browser TTS proof. Olivia speaking.");
+  u.onend = () => L("OK: browser TTS spoke (onend fired)");
+  u.onerror = (e) => L("BAD: browser TTS error=" + e.error, "bad");
+  synth.speak(u);
+};
+document.getElementById("b2").onclick = () => {
+  if (!window.OliviaBridge) return L("BAD: no OliviaBridge — purana APK! apk-v12+ install karo", "bad");
+  L("bridge version: " + window.OliviaBridge.bridgeVersion() + " ttsReady=" + window.OliviaBridge.ttsReady());
+  const ok = window.OliviaBridge.speak("APK bridge TTS proof. Olivia speaking from the Android engine.");
+  L(ok ? "OK: bridge speak accepted" : "BAD: bridge speak refused (ttsReady false?)", ok ? "ok" : "bad");
+};
+document.getElementById("b3").onclick = async () => {
+  try {
+    const r = await fetch("./api/act", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "speak", text: "Termux device TTS proof." }) });
+    const j = await r.json();
+    L((j.ok ? "OK: " : "BAD: ") + j.detail, j.ok ? "ok" : "bad");
+  } catch (e) { L("BAD: server fetch fail: " + e.message, "bad"); }
+};
+const PKGS = { whatsapp: "com.whatsapp" };
+document.getElementById("b4").onclick = async () => {
+  if (window.OliviaBridge) {
+    const ok = window.OliviaBridge.openApp(PKGS.whatsapp);
+    L(ok ? "OK: bridge opened whatsapp" : "BAD: bridge openApp false (installed nahi?)", ok ? "ok" : "bad");
+    if (ok) return;
+  } else L("no bridge — server fallback try hota hai");
+  try {
+    const r = await fetch("./api/act", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "open_app", name: "whatsapp" }) });
+    const j = await r.json();
+    L((j.ok ? "OK: " : "BAD: ") + "server: " + j.detail, j.ok ? "ok" : "bad");
+  } catch (e) { L("BAD: server fetch fail: " + e.message, "bad"); }
+};
+document.getElementById("b5").onclick = () => {
+  if (!window.OliviaBridge) return L("BAD: no bridge", "bad");
+  const ok = window.OliviaBridge.openUrl("https://m.youtube.com");
+  L(ok ? "OK: bridge opened youtube url" : "BAD: bridge openUrl false", ok ? "ok" : "bad");
+};
+</script>
+</body>
+</html>

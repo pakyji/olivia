@@ -43,6 +43,7 @@
   setInterval(checkHealth, 15000);
 
   /* ---------- device actions (server /api/act) ---------- */
+  const PKGS = { whatsapp:"com.whatsapp", youtube:"com.google.android.youtube", chrome:"com.android.chrome", settings:"com.android.settings", maps:"com.google.android.apps.maps", photos:"com.google.android.photos", instagram:"com.instagram.android", spotify:"com.spotify.music", phone:"com.android.dialer", messages:"com.google.android.messages", clock:"com.google.android.deskclock", files:"com.google.android.documentsui", playstore:"com.android.vending", telegram:"org.telegram.messenger", gmail:"com.google.android.gm", termux:"com.termux", calculator:"com.google.android.calculator", facebook:"com.facebook.katana", netflix:"com.netflix.mediaclient" };
   const APPS = ["whatsapp","youtube","chrome","settings","maps","photos","instagram","spotify","phone","messages","clock","files","playstore","telegram","gmail","termux","calculator","camera"];
   async function act(payload) {
     try {
@@ -94,9 +95,16 @@
     [/\bbattery\b/i, batteryInfo],
     [/\b(status|report|health|system)\b/i, systemReport],
     [/\bopen\s+([a-z ]+)$/i, async (m) => {
-      const name = m[1].trim();
-      if (/^https?:\/\//.test(name)) return act({ action: "open_url", url: name });
+      const name = m[1].trim().toLowerCase();
+      if (/^https?:\/\//.test(name)) {
+        if (window.OliviaBridge && window.OliviaBridge.openUrl(name)) return "Opening " + name;
+        return act({ action: "open_url", url: name });
+      }
       if (!APPS.includes(name)) return "I can open: " + APPS.join(", ");
+      if (window.OliviaBridge && window.OliviaBridge.openApp) {
+        const ok = window.OliviaBridge.openApp(PKGS[name]);
+        return ok ? "Opening " + name + "." : name + " installed nahi hai?";
+      }
       return act({ action: "open_app", name });
     }],
     [/\bzip(?:\s+(?:project|my\s+project)?\s*([\w.-]+))?/i, async (m) => {
