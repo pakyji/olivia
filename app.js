@@ -112,7 +112,9 @@ async function send() {
   const text = inputEl.value.trim();
   if (!text || busy) return;
   // JARVIS-style instant local commands (extra.js) can intercept
-  if (window.ullahPre && window.ullahPre(text)) {
+  let pre = false;
+  try { pre = !!(window.ullahPre && window.ullahPre(text)); } catch (e) {}
+  if (pre) {
     messages.push({ role: "user", content: text });
     const ub0 = bubble("user");
     ub0.body.textContent = text;

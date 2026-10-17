@@ -216,14 +216,13 @@ async function handleAct(req, res) {
         }
         const pkg = APPS[key];
         if (!pkg) return send(res, 200, JSON.stringify({ ok: false, detail: "Unknown app: " + key + ". Try: " + Object.keys(APPS).join(", ") }));
-        // prefer am start with resolved launcher activity (works without root); monkey fallback
-        const rr = await run("/system/bin/cmd", ["package", "resolve-activity", "--brief", pkg]);
+        // foreground-only launch works via APK bridge; this server path is best-effort with tight timeouts
+        const rr = await run("/system/bin/cmd", ["package", "resolve-activity", "--brief", pkg], { timeout: 6000 });
         const line = String(rr.out || "").trim().split("\n").pop().trim();
-        let r;
-        if (rr.ok && line && line.includes("/")) r = await run("/system/bin/am", ["start", "-n", line]);
-        else r = await run("/system/bin/monkey", ["-p", pkg, "-c", "android.intent.category.LAUNCHER", "1"]);
-        if (!r.ok) r = await run("/system/bin/monkey", ["-p", pkg, "-c", "android.intent.category.LAUNCHER", "1"]);
-        return send(res, 200, JSON.stringify({ ok: r.ok, detail: r.ok ? "Opening " + key + "." : r.err }));
+        let r = null;
+        if (rr.ok && line && line.includes("/")) r = await run("/system/bin/am", ["start", "-n", line], { timeout: 6000 });
+        if (!r || !r.ok) r = await run("/system/bin/monkey", ["-p", pkg, "-c", "android.intent.category.LAUNCHER", "1"], { timeout: 8000 });
+        return send(res, 200, JSON.stringify({ ok: r.ok, detail: r.ok ? "Opening " + key + "." : "Android blocked background launch: " + r.err.slice(0, 140) }));
       }
       if (action === "open_url") {
         const url = String(a.url || "");

@@ -105,9 +105,10 @@
       const hit = APPS.includes(name) ? name : APPS.includes(norm) ? norm : toks.find((c) => APPS.includes(c));
       if (!hit) return "I can open: " + APPS.join(", ");
       name = hit;
-      if (window.OliviaBridge && window.OliviaBridge.openApp && PKGS[name]) {
+      if (window.OliviaBridge && window.OliviaBridge.openApp) {
+        if (!PKGS[name]) return act({ action: "open_app", name });   // camera etc: server intent path
         const ok = window.OliviaBridge.openApp(PKGS[name]);
-        return ok ? "Opening " + name + "." : name + " does not seem to be installed.";
+        return ok ? "Opening " + name + "." : name + " didn't open. If it IS installed, the APK is outdated — reinstall the latest APK from Releases (the permission fix lives inside the APK).";
       }
       return act({ action: "open_app", name });
     }],
