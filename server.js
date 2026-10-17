@@ -4,7 +4,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 8081;
 const GATEWAY = process.env.OMNIROUTE_URL || "http://127.0.0.1:20128";
 const API_KEY = process.env.OMNIROUTE_KEY || "omniroute-local";
 const ROOT = __dirname;
