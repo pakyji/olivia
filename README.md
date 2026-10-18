@@ -61,23 +61,8 @@ Then either:
 | `tap 360 800` | taps screen coordinates |
 | `suggest a movie` | movie suggestions, conversational |
 
-## 🏗 Architecture
-
-```
-APK (WebView) ──▶ http://127.0.0.1:8080 ──▶ /api/chat (SSE) ──▶ OmniRoute :20128 ──▶ provider
-   shell            server.js (Node stdlib)  + persona.txt         gateway           (Gemini etc.)
-                          │
-                          └─▶ /api/act — JARVIS actions: open apps, save/zip/run projects, git push
-```
-
-- `server.js` — static files, `/api/chat` proxy (+ language injection), `/api/act` device actions
-- `app.js` — chat UI, markdown, history, code Copy/Save buttons
-- `voice.js` — recognition + TTS v3 (female-first, wake word)
-- `extra.js` — drawer menu, JARVIS commands, chips, health pill
-- `sw.js` — PWA shell (cache `olivia-v1`)
-- `android/` — WebView wrapper; GitHub Actions builds every push → Releases
-
 ## 🧪 Tests
+
 
 ```bash
 bash tests/smoke.sh
