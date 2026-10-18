@@ -134,10 +134,11 @@ function run(cmd, args, opts) {
   return new Promise((resolve) => {
     execFile(cmd, args, Object.assign({ timeout: 25000, maxBuffer: 512 * 1024 }, opts || {}),
       (err, stdout, stderr) => {
+        if (err) console.error("RUN ERROR:", cmd, args, err, stderr);
         resolve({
           ok: !err,
-          out: String(stdout || "").slice(-1800),
-          err: String(stderr || "").slice(-600) + (err ? " | " + String(err.message).slice(0, 200) : ""),
+          out: String(stdout || ""),
+          err: String(stderr || "") + (err ? " | " + String(err.message) : ""),
         });
       });
   });

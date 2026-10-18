@@ -27,10 +27,6 @@
 ## 🚀 Quick start (phone / Termux)
 
 ```bash
-# Session 1 — brain (OmniRoute gateway)
-omniroute
-
-# Session 2 — Olivia server (background, port 8080)
 cd ~/olivia && bash start-olivia.sh
 # stop with: bash stop-olivia.sh
 ```
