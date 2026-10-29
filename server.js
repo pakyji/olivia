@@ -11,6 +11,9 @@ const PORT = process.env.PORT || 8080;
 const GATEWAY = process.env.OMNIROUTE_URL || "http://127.0.0.1:20128";
 const API_KEY = process.env.OMNIROUTE_KEY || "omniroute-local";
 const ROOT = __dirname;
+const AUTH_TOKEN = process.env.OLIVIA_AUTH_TOKEN || "change-me-in-prod";
+const RATE_LIMIT_WINDOW = 60000; // 1 minute
+const RATE_LIMIT_MAX = 60; // requests per window
 
 const TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -31,16 +34,42 @@ function readPersona() {
   }
 }
 
+const rateLimitStore = new Map();
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const windowStart = now - RATE_LIMIT_WINDOW;
+  const requests = rateLimitStore.get(ip) || [];
+  const recent = requests.filter(t => t > windowStart);
+  if (recent.length >= RATE_LIMIT_MAX) return false;
+  recent.push(now);
+  rateLimitStore.set(ip, recent);
+  return true;
+}
+
 function send(res, code, body, type) {
-  res.writeHead(code, { "Content-Type": type || "application/json; charset=utf-8" });
+  res.writeHead(code, {
+    "Content-Type": type || "application/json; charset=utf-8",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "X-XSS-Protection": "1; mode=block"
+  });
   res.end(body);
+}
+
+function authenticate(req) {
+  const auth = req.headers['authorization'] || req.headers['x-olivia-token'];
+  return auth === 'Bearer ' + AUTH_TOKEN || auth === AUTH_TOKEN;
+}
+
+function safeJoin(base, target) {
+  const resolved = path.resolve(base, '.' + target);
+  return resolved.startsWith(base + path.sep) ? resolved : null;
 }
 
 function serveStatic(req, res, urlPath) {
   let rel = urlPath === "/" ? "/index.html" : urlPath;
-  const full = path.join(ROOT, rel);
-  // prevent path traversal (separator-aware: blocks /root-prefix-sibling escapes)
-  if (full !== ROOT && !full.startsWith(ROOT + path.sep)) return send(res, 403, "Forbidden", "text/plain");
+  const full = safeJoin(ROOT, rel);
+  if (!full) return send(res, 403, "Forbidden", "text/plain");
   fs.readFile(full, (err, data) => {
     if (err) return send(res, 404, "Not found", "text/plain");
     let type = TYPES[path.extname(full)] || "application/octet-stream";
@@ -87,6 +116,13 @@ function gwRequest(pathname, bodyObj) {
 
 // POST /api/chat  { model, messages:[{role,content}], lang }  -> streams SSE back
 async function handleChat(req, res) {
+  const ip = req.socket.remoteAddress || 'unknown';
+  if (!checkRateLimit(ip)) {
+    return send(res, 429, JSON.stringify({ error: "Rate limit exceeded" }));
+  }
+  if (!authenticate(req)) {
+    return send(res, 401, JSON.stringify({ error: "Unauthorized" }));
+  }
   let body = "";
   req.on("data", (c) => (body += c));
   req.on("end", async () => {
@@ -128,19 +164,30 @@ async function handleChat(req, res) {
 
 
 /* ---------- JARVIS actions: apps, projects, zip, run, git ---------- */
-const { execFile } = require("child_process");
+const { spawn } = require("child_process");
 
 function run(cmd, args, opts) {
   return new Promise((resolve) => {
-    execFile(cmd, args, Object.assign({ timeout: 25000, maxBuffer: 512 * 1024 }, opts || {}),
-      (err, stdout, stderr) => {
-        if (err) console.error("RUN ERROR:", cmd, args, err, stderr);
-        resolve({
-          ok: !err,
-          out: String(stdout || ""),
-          err: String(stderr || "") + (err ? " | " + String(err.message) : ""),
-        });
+    // Validate command is allowed
+    const allowedCmds = ['/system/bin/am', '/system/bin/cmd', '/system/bin/monkey', '/system/bin/input', 'termux-tts-speak', 'termux-tts-stop', 'termux-sms-send', 'git', process.execPath];
+    if (!allowedCmds.includes(cmd)) {
+      return resolve({ ok: false, out: "", err: "Command not allowed" });
+    }
+    // Validate args don't contain shell metacharacters
+    const sanitizedArgs = args.map(arg => String(arg).replace(/[;&|`$]/g, ''));
+    const proc = spawn(cmd, sanitizedArgs, Object.assign({ timeout: 25000 }, opts || {}));
+    let stdout = "", stderr = "";
+    proc.stdout.on("data", d => stdout += d);
+    proc.stderr.on("data", d => stderr += d);
+    proc.on("error", e => resolve({ ok: false, out: "", err: e.message }));
+    proc.on("close", code => {
+      if (code !== 0) console.error("RUN ERROR:", cmd, args, stderr);
+      resolve({
+        ok: code === 0,
+        out: String(stdout || ""),
+        err: String(stderr || "") + (code !== 0 ? " | exit " + code : ""),
       });
+    });
   });
 }
 
@@ -202,6 +249,13 @@ function walk(dir, base, out, depth) {
 }
 
 async function handleAct(req, res) {
+  const ip = req.socket.remoteAddress || 'unknown';
+  if (!checkRateLimit(ip)) {
+    return send(res, 429, JSON.stringify({ ok: false, detail: "Rate limit exceeded" }));
+  }
+  if (!authenticate(req)) {
+    return send(res, 401, JSON.stringify({ ok: false, detail: "Unauthorized" }));
+  }
   let body = "";
   req.on("data", (c) => (body += c));
   req.on("end", async () => {
@@ -259,8 +313,11 @@ async function handleAct(req, res) {
       if (action === "run_node") {
         const proj = String(a.project || "myapp"); const file = String(a.file || "");
         if (!SAFE.test(proj) || !SAFE.test(file)) return send(res, 200, JSON.stringify({ ok: false, detail: "Bad names." }));
-        const full = path.join(PROJECTS, proj, file);
-        if (!fs.existsSync(full)) return send(res, 200, JSON.stringify({ ok: false, detail: "File not found: " + proj + "/" + file }));
+        const full = safeJoin(PROJECTS, proj + "/" + file);
+        if (!full || !fs.existsSync(full)) return send(res, 200, JSON.stringify({ ok: false, detail: "File not found or access denied: " + proj + "/" + file }));
+        // Whitelist allowed file extensions
+        const ext = path.extname(full).toLowerCase();
+        if (!['.js', '.json'].includes(ext)) return send(res, 200, JSON.stringify({ ok: false, detail: "Only .js and .json files allowed" }));
         const r = await run(process.execPath, [full], { cwd: path.join(PROJECTS, proj), timeout: 8000 });
         return send(res, 200, JSON.stringify({ ok: r.ok, detail: (r.out || r.err || "no output").slice(0, 800) }));
       }
@@ -348,11 +405,25 @@ async function handleModels(req, res) {
 
 http
   .createServer((req, res) => {
+    // Security headers for all responses
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+
     const url = new URL(req.url, "http://localhost");
     const p = url.pathname;
+    // Rate limit static files too
+    const ip = req.socket.remoteAddress || 'unknown';
+    if (!checkRateLimit(ip)) {
+      return send(res, 429, JSON.stringify({ ok: false, detail: "Rate limit exceeded" }));
+    }
     if (req.method === "POST" && p === "/api/chat") return handleChat(req, res);
     if (req.method === "POST" && p === "/api/act") return handleAct(req, res);
-    if (req.method === "GET" && p === "/api/models") return handleModels(req, res);
+    if (req.method === "GET" && p === "/api/models") {
+      if (!authenticate(req)) return send(res, 401, JSON.stringify({ error: "Unauthorized" }));
+      return handleModels(req, res);
+    }
     if (req.method === "GET") return serveStatic(req, res, p);
     return send(res, 405, "Method not allowed", "text/plain");
   })
