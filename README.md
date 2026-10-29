@@ -1,6 +1,6 @@
 # Olivia Thomas 🎙️
 
-**Voice-first personal AI assistant & coding agent** — Android APK + PWA. She listens, understands, and **answers out loud**. JARVIS-class capabilities with a premium glass UI.
+**Voice-first personal AI assistant & coding agent** — Android APK + PWA. She listens, understands, and **answers out loud**. JARVIS-class capabilities with a premium glass UI. Inspired by OYE by Professor.
 
 [![Build APK](https://github.com/pakyji/olivia/actions/workflows/build-apk.yml/badge.svg)](https://github.com/pakyji/olivia/actions/workflows/build-apk.yml)
 [![Latest APK](https://img.shields.io/github/v/release/pakyji/olivia?label=APK)](https://github.com/pakyji/olivia/releases/latest)
@@ -8,7 +8,7 @@
 ## ✨ Features
 
 - 🎙 **Voice in / voice out** — Web Speech API: speak, and hear the answer spoken back
-- 🌐 **3 languages** — English (default), Roman Urdu, Italian — switch from the ☰ menu, strictly enforced by the persona
+- 🌐 **4 languages** — English (default), Roman Urdu, Italian, Hindi — switch from the ☰ menu, strictly enforced by the persona (OYE-style)
 - 👩 **Olivia Thomas persona** — warm, confident companion (JARVIS-style), female-first TTS voices
 - 🔊 **TTS v3 engine** — female voice priority, sentence chunking, GC-safe utterances, resume watchdog, speed slider
 - 🗣 **Wake word** — say “Olivia” in conversation mode to address her (optional toggle)
@@ -60,6 +60,8 @@ Then either:
 | `scroll down` / `scroll up` / `go back` / `go home` | controls the open app (JARVIS-style) |
 | `tap 360 800` | taps screen coordinates |
 | `suggest a movie` | movie suggestions, conversational |
+| `remind me in 15 minutes to drink water` | OYE-style natural language reminders |
+| `Oye, open Facebook` | OYE-style wake word commands |
 
 ## 🧪 Tests
 

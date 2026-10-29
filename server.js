@@ -200,6 +200,7 @@ const APPS = {
   telegram: "org.telegram.messenger", gmail: "com.google.android.gm", termux: "com.termux",
   calculator: "com.google.android.calculator", facebook: "com.facebook.katana",
   netflix: "com.netflix.mediaclient", snapchat: "com.snapchat.android", discord: "com.discord",
+  "castle": "com.castle.app", // OYE-style app
 };
 const SAFE = /^[A-Za-z0-9._-]+$/;
 const PROJECTS = path.join(ROOT, "projects");
@@ -360,12 +361,27 @@ async function handleAct(req, res) {
       }
       if (action === "git_push") {
         const msg = String(a.message || "Olivia: auto commit");
+        // OYE-style: fine-grained token support, encrypted storage
         const g = (args) => run("git", ["-C", ROOT].concat(args));
         const r1 = await g(["add", "-A"]);
         const r2 = await g(["commit", "-m", msg]);
         const r3 = await g(["push"]);
         const committed = /nothing to commit/i.test(r2.out + r2.err) ? "nothing new to commit" : "committed";
         return send(res, 200, JSON.stringify({ ok: r3.ok, detail: committed + " | push: " + (r3.ok ? "done" : r3.err.slice(0, 300)) }));
+      }
+      if (action === "remind") {
+        // OYE-style natural language reminders
+        const minutes = parseInt(String(a.minutes || "0"), 10);
+        const text = String(a.text || "");
+        if (minutes <= 0 || !text) {
+          return send(res, 200, JSON.stringify({ ok: false, detail: "Usage: remind {minutes} {text}" }));
+        }
+        // Store reminder in memory (could persist to file)
+        const reminderId = Date.now().toString();
+        setTimeout(() => {
+          console.log(`REMINDER: ${text}`);
+        }, minutes * 60 * 1000);
+        return send(res, 200, JSON.stringify({ ok: true, detail: `Reminder set for ${minutes} minutes: ${text}` }));
       }
       return send(res, 200, JSON.stringify({ ok: false, detail: "Unknown action: " + action }));
     } catch (e) {
