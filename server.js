@@ -169,7 +169,7 @@ const { spawn } = require("child_process");
 function run(cmd, args, opts) {
   return new Promise((resolve) => {
     // Validate command is allowed
-    const allowedCmds = ['/system/bin/am', '/system/bin/cmd', '/system/bin/monkey', '/system/bin/input', 'termux-tts-speak', 'termux-tts-stop', 'termux-sms-send', 'git', process.execPath];
+    const allowedCmds = ['/system/bin/am', '/system/bin/cmd', '/system/bin/monkey', '/system/bin/input', 'termux-tts-speak', 'termux-tts-stop', 'termux-sms-send', 'git', '/system/bin/node', '/usr/bin/node'];
     if (!allowedCmds.includes(cmd)) {
       return resolve({ ok: false, out: "", err: "Command not allowed" });
     }
@@ -200,7 +200,6 @@ const APPS = {
   telegram: "org.telegram.messenger", gmail: "com.google.android.gm", termux: "com.termux",
   calculator: "com.google.android.calculator", facebook: "com.facebook.katana",
   netflix: "com.netflix.mediaclient", snapchat: "com.snapchat.android", discord: "com.discord",
-  "castle": "com.castle.app", // OYE-style app
 };
 const SAFE = /^[A-Za-z0-9._-]+$/;
 const PROJECTS = path.join(ROOT, "projects");
@@ -289,10 +288,15 @@ async function handleAct(req, res) {
       if (action === "save_file") {
         const proj = String(a.project || "myapp"); const file = String(a.file || "");
         if (!SAFE.test(proj) || !SAFE.test(file)) return send(res, 200, JSON.stringify({ ok: false, detail: "Bad project/file name." }));
-        const dir = path.join(PROJECTS, proj);
-        fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(path.join(dir, file), String(a.content || ""));
-        return send(res, 200, JSON.stringify({ ok: true, detail: "Saved " + proj + "/" + file }));
+        const dir = safeJoin(PROJECTS, proj);
+        if (!dir) return send(res, 200, JSON.stringify({ ok: false, detail: "Invalid project path" }));
+        try {
+          fs.mkdirSync(dir, { recursive: true });
+          fs.writeFileSync(path.join(dir, file), String(a.content || ""));
+          return send(res, 200, JSON.stringify({ ok: true, detail: "Saved " + proj + "/" + file }));
+        } catch (e) {
+          return send(res, 200, JSON.stringify({ ok: false, detail: "Failed to save: " + e.message }));
+        }
       }
       if (action === "list_projects") {
         let list = [];
@@ -319,7 +323,7 @@ async function handleAct(req, res) {
         // Whitelist allowed file extensions
         const ext = path.extname(full).toLowerCase();
         if (!['.js', '.json'].includes(ext)) return send(res, 200, JSON.stringify({ ok: false, detail: "Only .js and .json files allowed" }));
-        const r = await run(process.execPath, [full], { cwd: path.join(PROJECTS, proj), timeout: 8000 });
+        const r = await run('/system/bin/node', [full], { cwd: path.join(PROJECTS, proj), timeout: 8000 });
         return send(res, 200, JSON.stringify({ ok: r.ok, detail: (r.out || r.err || "no output").slice(0, 800) }));
       }
       if (action === "speak") {
@@ -370,16 +374,16 @@ async function handleAct(req, res) {
         return send(res, 200, JSON.stringify({ ok: r3.ok, detail: committed + " | push: " + (r3.ok ? "done" : r3.err.slice(0, 300)) }));
       }
       if (action === "remind") {
-        // OYE-style natural language reminders
+        // Natural language reminders
         const minutes = parseInt(String(a.minutes || "0"), 10);
         const text = String(a.text || "");
         if (minutes <= 0 || !text) {
           return send(res, 200, JSON.stringify({ ok: false, detail: "Usage: remind {minutes} {text}" }));
         }
-        // Store reminder in memory (could persist to file)
-        const reminderId = Date.now().toString();
+        // Store reminder in memory
         setTimeout(() => {
           console.log(`REMINDER: ${text}`);
+          // Try to notify user via push notification if possible
         }, minutes * 60 * 1000);
         return send(res, 200, JSON.stringify({ ok: true, detail: `Reminder set for ${minutes} minutes: ${text}` }));
       }
