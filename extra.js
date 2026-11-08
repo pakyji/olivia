@@ -98,6 +98,150 @@
   function lastProject() {
     try { return localStorage.getItem("olivia.lastproject") || "myapp"; } catch { return "myapp"; }
   }
+
+  // Memory/Notebook commands
+  async function memoryRecall(topic, key) {
+    try {
+      const r = await fetch("./api/act", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "memory_recall", topic: topic || "", key: key || "" }),
+      });
+      const j = await r.json();
+      return j.detail || (j.ok ? "done" : "failed");
+    } catch (e) {
+      return "Server unreachable: " + e.message;
+    }
+  }
+
+  async function memoryRemember(topic, key, value) {
+    try {
+      const r = await fetch("./api/act", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "memory_remember", topic, key, value }),
+      });
+      const j = await r.json();
+      return j.detail || (j.ok ? "done" : "failed");
+    } catch (e) {
+      return "Server unreachable: " + e.message;
+    }
+  }
+
+  async function memoryForget(topic, key) {
+    try {
+      const r = await fetch("./api/act", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "memory_forget", topic, key }),
+      });
+      const j = await r.json();
+      return j.detail || (j.ok ? "done" : "failed");
+    } catch (e) {
+      return "Server unreachable: " + e.message;
+    }
+  }
+
+  async function notebookCmd() {
+    try {
+      const r = await fetch("./api/act", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "notebook" }),
+      });
+      const j = await r.json();
+      return j.detail || (j.ok ? "done" : "failed");
+    } catch (e) {
+      return "Server unreachable: " + e.message;
+    }
+  }
+
+  async function todolistCmd() {
+    try {
+      const r = await fetch("./api/act", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "todolist" }),
+      });
+      const j = await r.json();
+      return j.detail || (j.ok ? "done" : "failed");
+    } catch (e) {
+      return "Server unreachable: " + e.message;
+    }
+  }
+
+  async function todoCmd(minutes, text) {
+    try {
+      const r = await fetch("./api/act", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "todo", minutes, text }),
+      });
+      const j = await r.json();
+      return j.detail || (j.ok ? "done" : "failed");
+    } catch (e) {
+      return "Server unreachable: " + e.message;
+    }
+  }
+
+  async function todoDoneCmd(index) {
+    try {
+      const r = await fetch("./api/act", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "todo_done", index }),
+      });
+      const j = await r.json();
+      return j.detail || (j.ok ? "done" : "failed");
+    } catch (e) {
+      return "Server unreachable: " + e.message;
+    }
+  }
+
+  async function sceneCmd(name) {
+    try {
+      const r = await fetch("./api/act", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "scene", name: name || "" }),
+      });
+      const j = await r.json();
+      if (j.ok && j.detail) {
+        try {
+          const data = JSON.parse(j.detail);
+          if (data.steps) {
+            // Execute scene steps
+            for (const step of data.steps) {
+              if (step.type === "say") {
+                if (window.ullah && window.ullah.localReply) window.ullah.localReply(step.text);
+              } else if (step.type === "cmd") {
+                await act({ action: step.action });
+              }
+            }
+            return "Scene '" + name + "' completed: " + data.description;
+          }
+        } catch (e) {}
+      }
+      return j.detail || (j.ok ? "done" : "failed");
+    } catch (e) {
+      return "Server unreachable: " + e.message;
+    }
+  }
+
+  async function notificationsCmd() {
+    try {
+      const r = await fetch("./api/act", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "notification_list" }),
+      });
+      const j = await r.json();
+      return j.detail || (j.ok ? "done" : "failed");
+    } catch (e) {
+      return "Server unreachable: " + e.message;
+    }
+  }
+
   const CMD = [
     [/(?:send|bhejo)\s+(?:sms|text|message)\s+(?:to\s+)?(\+?\d[\d\s-]{6,})\s*[:-]\s*(.+)/i, (m) => act({ action: "send_sms", to: m[1], text: m[2] })],
     [/\bscroll\s+(down|up)\b/i, (m) => act({ action: "scroll", dir: m[1] })],
@@ -133,6 +277,17 @@
     [/\bprojects?\s+list\b|\blist projects\b/i, () => act({ action: "list_projects" })],
     [/\bpush\b.*\bgithub\b|\bgithub\b.*\bpush\b/i, () => act({ action: "git_push", message: "Olivia: push from assistant" })],
     [/\brun\s+([\w.-]+)/i, (m) => act({ action: "run_node", project: lastProject(), file: m[1] })],
+    // Memory/Notebook commands
+    [/\brecall\b(?:\s+(\w+))?(?:\s+(\w+))?/i, (m) => memoryRecall(m[1] || "", m[2] || "")],
+    [/\bremember\s+(\w+)\s+(\w+)\s+([\s\S]+)/i, (m) => memoryRemember(m[1], m[2], m[3].trim())],
+    [/\bforget\s+(\w+)\s+(\w+)/i, (m) => memoryForget(m[1], m[2])],
+    [/\bnotebook\b/i, () => notebookCmd()],
+    [/\btodolist\b|\btodos?\b/i, () => todolistCmd()],
+    [/\btodo\s+(\d+)\s+(.+)/i, (m) => todoCmd(m[1], m[2])],
+    [/\btodo\s+done\s+(\d+)/i, (m) => todoDoneCmd(m[1])],
+    [/\bscene\s+(\w+)/i, (m) => sceneCmd(m[1])],
+    [/\bscene\b/i, () => sceneCmd("")],
+    [/\bnotifications?\b/i, () => notificationsCmd()],
   ];
   window.ullahPre = (text) => {
     for (const [re, fn] of CMD) {
@@ -162,7 +317,7 @@
   /* ---------- quick chips ---------- */
   const wrap = document.getElementById("chips");
   if (wrap) {
-    const CHIPS = ["time?", "battery status", "system report", "open whatsapp", "open youtube", "open netflix", "suggest a movie", "scroll down", "go back", "zip project", "push to github"];
+    const CHIPS = ["time?", "battery status", "system report", "open whatsapp", "open youtube", "open netflix", "suggest a movie", "scroll down", "go back", "zip project", "push to github", "notebook", "todolist", "scene morning", "scene focus", "notifications"];
     CHIPS.forEach((c) => {
       const b = document.createElement("button");
       b.className = "chip";

@@ -136,11 +136,13 @@
   <label>Speech speed
     <input type="range" id="rate" min="0.6" max="1.6" step="0.1" value="1" />
   </label>
-  <div class="row"><span>Wake word “Olivia”</span><input type="checkbox" id="wake" /></div>
+  <div class="row"><span>Wake word "Olivia"</span><input type="checkbox" id="wake" /></div>
   <button id="newchat"> New chat</button>
-  <div id="about">Olivia Thomas — JARVIS-style voice-first personal AI agent. Opens apps, builds &amp; zips projects, runs code, pushes to GitHub. Zero-dependency Node server + vanilla JS, built on Termux, shipped via GitHub Actions.</div>
+  <div id="about">Olivia Thomas — JARVIS-style voice-first personal AI agent. Opens apps, builds & zips projects, runs code, pushes to GitHub. Zero-dependency Node server + vanilla JS, built on Termux, shipped via GitHub Actions.</div>
 </div>
 
+<script src="./memory.js"></script>
+<script src="./heartbeat.js"></script>
 <script src="./app.js"></script>
 <script src="./voice.js"></script>
 <script src="./extra.js"></script>

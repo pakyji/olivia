@@ -201,9 +201,160 @@ const APPS = {
   calculator: "com.google.android.calculator", facebook: "com.facebook.katana",
   netflix: "com.netflix.mediaclient", snapchat: "com.snapchat.android", discord: "com.discord",
 };
+const VALID_TOPICS = ["self", "cares", "diary", "plan", "people", "wiki", "memories", "todos"];
 const SAFE = /^[A-Za-z0-9._-]+$/;
 const PROJECTS = path.join(ROOT, "projects");
 const FILES = path.join(ROOT, "files");
+const MEMORY_FILE = path.join(ROOT, "memory.json");
+const TODO_FILE = path.join(ROOT, "todos.json");
+const SCENES_FILE = path.join(ROOT, "scenes.json");
+
+function loadJSON(file, fallback) {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function saveJSON(file, data) {
+  try {
+    fs.writeFileSync(file, JSON.stringify(data, null, 2));
+  } catch (e) {}
+}
+
+// Memory functions for server-side
+function serverRecall(topic, key) {
+  const mem = loadJSON(MEMORY_FILE, {});
+  if (!topic) {
+    const summary = {};
+    for (const t of VALID_TOPICS) {
+      summary[t] = mem[t] ? Object.keys(mem[t]).length : 0;
+    }
+    return { ok: true, detail: JSON.stringify(summary) };
+  }
+  if (!VALID_TOPICS.includes(topic)) {
+    return { ok: false, detail: `Invalid topic. Valid: ${VALID_TOPICS.join(", ")}` };
+  }
+  if (!key) {
+    return { ok: true, detail: JSON.stringify(mem[topic] || {}) };
+  }
+  const val = mem[topic]?.[key];
+  return { ok: true, detail: val !== undefined ? val.value : null };
+}
+
+function serverRemember(topic, key, value) {
+  if (!VALID_TOPICS.includes(topic)) {
+    return { ok: false, detail: `Invalid topic. Valid: ${VALID_TOPICS.join(", ")}` };
+  }
+  const mem = loadJSON(MEMORY_FILE, {});
+  if (!mem[topic]) mem[topic] = {};
+  mem[topic][key] = { value, updated: Date.now() };
+  saveJSON(MEMORY_FILE, mem);
+  return { ok: true, detail: `Remembered ${topic}.${key}` };
+}
+
+function serverForget(topic, key) {
+  if (!VALID_TOPICS.includes(topic)) {
+    return { ok: false, detail: `Invalid topic. Valid: ${VALID_TOPICS.join(", ")}` };
+  }
+  const mem = loadJSON(MEMORY_FILE, {});
+  if (!mem[topic] || !(key in mem[topic])) {
+    return { ok: false, detail: `Key not found: ${topic}.${key}` };
+  }
+  delete mem[topic][key];
+  saveJSON(MEMORY_FILE, mem);
+  return { ok: true, detail: `Forgot ${topic}.${key}` };
+}
+
+function serverNotebook() {
+  const mem = loadJSON(MEMORY_FILE, {});
+  const todos = loadJSON(TODO_FILE, []);
+  const scenes = loadJSON(SCENES_FILE, {});
+  let out = "📓 **Olivia's Notebook**\n\n";
+  for (const t of VALID_TOPICS) {
+    const entries = mem[t] || {};
+    out += `**${t.toUpperCase()}** (${Object.keys(entries).length} entries)\n`;
+    for (const [k, v] of Object.entries(entries)) {
+      out += `  • ${k}: ${typeof v === 'object' ? v.value : v}\n`;
+    }
+    out += "\n";
+  }
+  out += `**SCENES** (${Object.keys(scenes).length})\n`;
+  for (const [k, v] of Object.entries(scenes)) {
+    out += `  • ${k}: ${v.name} — ${v.description}\n`;
+  }
+  out += `\n**ACTIVE TODOS** (${todos.length})\n`;
+  for (const t of todos) {
+    const due = t.due ? new Date(t.due).toLocaleTimeString() : "no due";
+    const done = t.done ? "✓ " : "";
+    out += `  • ${done}${t.text} (due: ${due})\n`;
+  }
+  return { ok: true, detail: out };
+}
+
+function serverTodolist() {
+  const todos = loadJSON(TODO_FILE, []);
+  if (!todos.length) return { ok: true, detail: "No todos. Add one with: todo <minutes> <description>" };
+  let out = "✅ **Your Todos**\n\n";
+  for (let i = 0; i < todos.length; i++) {
+    const t = todos[i];
+    const due = t.due ? ` ⏰ ${new Date(t.due).toLocaleString()}` : "";
+    const done = t.done ? "✓ " : "";
+    out += `${i + 1}. ${done}${t.text}${due}\n`;
+  }
+  return { ok: true, detail: out };
+}
+
+function serverTodo(minutes, text) {
+  if (!minutes || !text) {
+    return { ok: false, detail: "Usage: todo <minutes> <description>" };
+  }
+  const mins = parseInt(minutes, 10);
+  if (isNaN(mins) || mins <= 0) {
+    return { ok: false, detail: "Minutes must be a positive number" };
+  }
+  const todos = loadJSON(TODO_FILE, []);
+  const due = Date.now() + mins * 60 * 1000;
+  todos.push({ text, due, done: false, created: Date.now() });
+  saveJSON(TODO_FILE, todos);
+  return { ok: true, detail: `Todo added: "${text}" in ${mins} minute(s)` };
+}
+
+function serverTodoDone(index) {
+  const todos = loadJSON(TODO_FILE, []);
+  const idx = parseInt(index, 10) - 1;
+  if (idx < 0 || idx >= todos.length) {
+    return { ok: false, detail: "Invalid todo number" };
+  }
+  todos[idx].done = true;
+  saveJSON(TODO_FILE, todos);
+  return { ok: true, detail: `Marked done: ${todos[idx].text}` };
+}
+
+function serverScene(name) {
+  const scenes = loadJSON(SCENES_FILE, {});
+  if (!name) {
+    let out = "🎬 **Available Scenes**\n\n";
+    for (const [k, v] of Object.entries(scenes)) {
+      out += `• **${k}**: ${v.name} — ${v.description}\n`;
+    }
+    out += "\nRun with: \`scene <name>\`";
+    return { ok: true, detail: out };
+  }
+  const s = scenes[name];
+  if (!s) {
+    return { ok: false, detail: `Scene not found: ${name}. Run \`scene\` to list.` };
+  }
+  return { ok: true, detail: JSON.stringify({ scene: name, steps: s.steps, description: s.description }) };
+}
+
+function serverSaveScene(name, sceneDef) {
+  const scenes = loadJSON(SCENES_FILE, {});
+  scenes[name] = sceneDef;
+  saveJSON(SCENES_FILE, scenes);
+  return { ok: true, detail: `Scene saved: ${name}` };
+}
 
 function crc32(buf) {
   let t = [];
@@ -386,6 +537,89 @@ async function handleAct(req, res) {
           // Try to notify user via push notification if possible
         }, minutes * 60 * 1000);
         return send(res, 200, JSON.stringify({ ok: true, detail: `Reminder set for ${minutes} minutes: ${text}` }));
+      }
+      // --- Memory/Notebook actions ---
+      if (action === "memory_recall") {
+        const topic = String(a.topic || "");
+        const key = String(a.key || "");
+        const result = serverRecall(topic || null, key || null);
+        return send(res, 200, JSON.stringify(result));
+      }
+      if (action === "memory_remember") {
+        const topic = String(a.topic || "");
+        const key = String(a.key || "");
+        const value = String(a.value || "");
+        if (!topic || !key || !value) {
+          return send(res, 200, JSON.stringify({ ok: false, detail: "Usage: memory_remember {topic} {key} {value}" }));
+        }
+        const result = serverRemember(topic, key, value);
+        return send(res, 200, JSON.stringify(result));
+      }
+      if (action === "memory_forget") {
+        const topic = String(a.topic || "");
+        const key = String(a.key || "");
+        if (!topic || !key) {
+          return send(res, 200, JSON.stringify({ ok: false, detail: "Usage: memory_forget {topic} {key}" }));
+        }
+        const result = serverForget(topic, key);
+        return send(res, 200, JSON.stringify(result));
+      }
+      if (action === "notebook") {
+        const result = serverNotebook();
+        return send(res, 200, JSON.stringify(result));
+      }
+      if (action === "todolist") {
+        const result = serverTodolist();
+        return send(res, 200, JSON.stringify(result));
+      }
+      if (action === "todo") {
+        const minutes = String(a.minutes || "");
+        const text = String(a.text || "");
+        const result = serverTodo(minutes, text);
+        return send(res, 200, JSON.stringify(result));
+      }
+      if (action === "todo_done") {
+        const index = String(a.index || "");
+        const result = serverTodoDone(index);
+        return send(res, 200, JSON.stringify(result));
+      }
+      if (action === "scene") {
+        const name = String(a.name || "");
+        const result = serverScene(name || null);
+        return send(res, 200, JSON.stringify(result));
+      }
+      if (action === "save_scene") {
+        const name = String(a.name || "");
+        let sceneDef = a.scene;
+        if (typeof sceneDef === "string") {
+          try { sceneDef = JSON.parse(sceneDef); } catch { return send(res, 200, JSON.stringify({ ok: false, detail: "Invalid scene JSON" })); }
+        }
+        if (!name || !sceneDef) {
+          return send(res, 200, JSON.stringify({ ok: false, detail: "Usage: save_scene {name} {scene}" }));
+        }
+        const result = serverSaveScene(name, sceneDef);
+        return send(res, 200, JSON.stringify(result));
+      }
+      if (action === "notification_list") {
+        // Read notifications via Termux:API
+        const r = await run("termux-notification-list", []);
+        if (!r.ok) {
+          return send(res, 200, JSON.stringify({ ok: false, detail: "Termux:API not available: " + r.err }));
+        }
+        try {
+          const notifications = JSON.parse(r.out || "[]");
+          let out = "📬 **Notifications**\n\n";
+          if (!notifications.length) {
+            out += "No active notifications.";
+          } else {
+            for (const n of notifications) {
+              out += `• **${n.packageName || "Unknown"}**: ${n.title || ""} — ${n.text || ""}\n`;
+            }
+          }
+          return send(res, 200, JSON.stringify({ ok: true, detail: out }));
+        } catch (e) {
+          return send(res, 200, JSON.stringify({ ok: false, detail: "Failed to parse notifications: " + e.message }));
+        }
       }
       return send(res, 200, JSON.stringify({ ok: false, detail: "Unknown action: " + action }));
     } catch (e) {

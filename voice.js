@@ -110,11 +110,16 @@
   }
 
   function speakable(text) {
+    // Extract mood markers for TTS expression (Andee-style)
+    // Markers: [happy], [calm], [curious], [concerned], [playful], [quiet], [END]
+    // [quiet] suppresses TTS for that segment
+    // We'll strip them for speaking but could use them for voice selection
     return text
       .replace(/```[\s\S]*?```/g, " (code block) ")
       .replace(/`([^`]+)`/g, "$1")
       .replace(/[*_#>|]/g, "")
       .replace(/\[(.*?)\]\(.*?\)/g, "$1")
+      .replace(/\[(happy|calm|curious|concerned|playful|quiet|END)\]/gi, "") // Remove mood markers for speech
       .replace(/\s+/g, " ")
       .trim();
   }
